@@ -6,11 +6,11 @@ build-backend = "setuptools.build_meta"
 
 # Metadata (see https://peps.python.org/pep-0621/)
 [project]
-name = "ocf-python-project"
+name = "cloudcasting-app"
 dynamic = ["version"] # Set automtically using git: https://setuptools-git-versioning.readthedocs.io/en/stable/
-description = "Consise summary of project"
+description = "An app for running the OCF cloudcasting model in production"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.12.0"
+requires-python = ">=3.10"
 license = {text = "MIT License"}
 authors = [
     { name = "Open Climate Fix Team", email = "info@openclimatefix.org"}
@@ -20,29 +20,36 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "numpy >= 1.23.2",
+    "torch[cpu]",
+    "fsspec[s3]",
+    "xarray",
+    "zarr",
+    "numpy",
+    "pandas",
+    "typer",
+    "huggingface-hub",
+    "ocf_blosc2",
+    "hydra-core",
+    "safetensors",
+    "ocf-data-sampler",
+    "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@main",
 ]
 
-[project.optional-dependencies]
-test = [
-    "unittest-xml-reporting == 3.2.0", # Used for XML test results in Actions
-]
-lint = [
+[dependency-groups]
+dev = [
+    # Testing
+    "pytest",
+    "unittest-xml-reporting",
+    # Linting and type checking
     "mypy >= 1.11.0",
     "ruff >= 0.6.4",
-]
-docs = [
-    "pydoctor >= 24.3.0",
-]
-dev = [
-    "ocf-python-project[test,lint,docs]",
 ]
 
 [project.scripts]
 # Put entrypoints in here
 
 [project.urls]
-repository = "https://github.com/openclimatefix/ocf-python-template"
+repository = "https://github.com/openclimatefix/cloudcasting-app"
 
 [tool.setuptools]
 include-package-data = false
@@ -112,8 +119,8 @@ docstring-code-line-length = 100
 # --- DOCUMENTATION CONFIGURATION --- #
 
 [tool.pydoctor]
-add-package = ["src/nwp_consumer"]
-project-base-dir = "src/nwp_consumer"
+add-package = ["src/cloudcasting_app"]
+project-base-dir = "src/cloudcasting_app"
 docformat = "google"
 html-output = "docs"
 theme = "classic"
