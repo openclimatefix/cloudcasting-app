@@ -1,20 +1,30 @@
-name: Python package tests
-
-on:
+name: Conda pytest
+on: 
   push:
   pull_request:
-    types: [opened, reopened, synchronize]
-  schedule:
-    - cron: "0 12 * * 1"
+    types: [opened, reopened]
+
 jobs:
-  call-run-python-tests:
-    uses: openclimatefix/.github/.github/workflows/python-test.yml@main
-    with:
-      # 0 means don't use pytest-xdist
-      pytest_numcpus: "4"
-      # pytest-cov looks at this folder
-      pytest_cov_dir: "src/cloudcasting_app"
-      # extra things to install
-      #sudo_apt_install: "libgeos++-dev libproj-dev proj-data proj-bin"
-      #      brew_install: "proj geos librttopo"
-      os_list: '["ubuntu-latest"]'
+  push_to_registry:
+    name: Run testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          channels: bioconda, conda-forge, defaults
+          auto-update-conda: true
+          auto-activate-base: true
+
+      - name: Install the repo
+        shell: bash -l {0}
+        run: |
+          pip install -e .
+
+      - name: run pytest
+        shell: bash -l {0}
+        run: |
+          python -m pytest
