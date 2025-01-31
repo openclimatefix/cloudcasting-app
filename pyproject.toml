@@ -23,7 +23,7 @@ dependencies = [
     "torch[cpu]",
     "fsspec[s3]",
     "xarray",
-    "zarr",
+    "zarr<3.0",
     "numpy",
     "pandas",
     "typer",
