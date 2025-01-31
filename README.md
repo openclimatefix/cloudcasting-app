@@ -1,6 +1,6 @@
 # cloudcasting-app
  
-[![contributors badge](https://img.shields.io/github/contributors/openclimatefix/ocf-template?color=FFFFFF)](https://github.com/openclimatefix/ocf-template/graphs/contributors)
+[![contributors badge](https://img.shields.io/github/contributors/openclimatefix/cloudcasting-app?color=FFFFFF)](https://github.com/openclimatefix/cloudcasting-app/graphs/contributors)
 [![ease of contribution: hard](https://img.shields.io/badge/ease%20of%20contribution:%20hard-bb2629)](https://github.com/openclimatefix#how-easy-is-it-to-get-involved)
 
 This repo is used to run the OCF-ATI cloudcasting model live in production. This model takes
@@ -28,7 +28,7 @@ pip install .
 ### Running the app locally
 
 It is possbile to run the app locally by setting the required environment variables listed at the top of the [app](src/cloudcasting_app/app.py), these should point to the relevant paths for loading satellite data 
-and sving predicitons.
+and saving predicitons.
 
 ## Development
 
@@ -43,7 +43,7 @@ pytest
 
 ## Contributing and community
 
-[![issues badge](https://img.shields.io/github/issues/openclimatefix/ocf-template?color=FFAC5F)](https://github.com/openclimatefix/ocf-template/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)
+[![issues badge](https://img.shields.io/github/issues/openclimatefix/cloudcasting-app?color=FFAC5F)](https://github.com/openclimatefix/cloudcasting-app/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)
 
 - PR's are welcome! See the [Organisation Profile](https://github.com/openclimatefix) for details on contributing
 - Find out about our other projects in the [here](https://github.com/openclimatefix/.github/tree/main/profile)
