@@ -1,11 +1,10 @@
 import os
-
 import pytest
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import xarray as xr
-
-
+import fsspec
 
 
 xr.set_options(keep_attrs=True)
@@ -16,15 +15,16 @@ def test_t0():
 
 
 def make_sat_data(test_t0, freq_mins):
+    
     # Load dataset which only contains coordinates, but no data
-    ds = xr.open_zarr(
-        f"{os.path.dirname(os.path.abspath(__file__))}/test_data/non_hrv_shell.zarr.zip"
-    )
+    shell_path = f"{os.path.dirname(os.path.abspath(__file__))}/test_data/non_hrv_shell.zarr.zip"
+    
+    ds = xr.open_zarr(fsspec.get_mapper(f"zip::{shell_path}"))
 
-    # remove tim dim and expand time dim to be len 36 = 3 hours of 5 minute data
+    # Remove original time dim 
     ds = ds.drop_vars("time")
 
-    # Add times so they lead up to present
+    # Add new times so they lead up to present 
     times = pd.date_range(
         test_t0 - pd.Timedelta("3h"),
         test_t0,

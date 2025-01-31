@@ -38,7 +38,6 @@ channel_order = [
 
 
 def crop_input_area(ds):
-    
     (x_min, x_max), (y_min, y_max) = lon_lat_to_geostationary_area_coords(
         [lon_min, lon_max],
         [lat_min, lat_max],
