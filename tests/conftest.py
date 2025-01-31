@@ -19,7 +19,7 @@ def make_sat_data(test_t0, freq_mins):
     # Load dataset which only contains coordinates, but no data
     shell_path = f"{os.path.dirname(os.path.abspath(__file__))}/test_data/non_hrv_shell.zarr.zip"
     
-    with zarr.ZipStore(shell_path, mode='r') as store:
+    with zarr.storage.ZipStore(shell_path, mode='r') as store:
         ds = xr.open_zarr(store)
 
     # Remove original time dim 
