@@ -126,5 +126,4 @@ def app(t0=None):
     
     
 if __name__ == "__main__":
-    app()
-    #typer.run(app)
+    typer.run(app)
