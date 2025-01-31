@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import pandas as pd
 import xarray as xr
-import zarr
+import fsspec
 
 
 xr.set_options(keep_attrs=True)
@@ -19,8 +19,7 @@ def make_sat_data(test_t0, freq_mins):
     # Load dataset which only contains coordinates, but no data
     shell_path = f"{os.path.dirname(os.path.abspath(__file__))}/test_data/non_hrv_shell.zarr.zip"
     
-    with zarr.storage.ZipStore(shell_path, mode='r') as store:
-        ds = xr.open_zarr(store)
+    ds = xr.open_zarr(fsspec.get_mapper(f"zip::{shell_path}"))
 
     # Remove original time dim 
     ds = ds.drop_vars("time")
