@@ -1,8 +1,15 @@
+"""
+The main script for running the cloudcasting model in production
+
+This app expects these environmental variables to be available:
+    SATELLITE_ZARR_PATH (str): The path of the input satellite data
+    OUTPUT_PREDICTION_ZARR_PATH (str): The path to save the predictions to
+"""
+
 import typer
 import pandas as pd
 import torch
 import xarray as xr
-import zarr
 import logging
 import cloudcasting_app
 from cloudcasting_app.data import prepare_satellite_data, sat_path, get_input_data
@@ -31,9 +38,6 @@ REVISION = "47643e89000e64e0150f7359ccc0cb6524948712"
 
 def app(t0=None):
     """Inference function for production
-
-    This app expects these environmental variables to be available:
-        - SATELLITE_ZARR_PATH
 
     Args:
         t0 (datetime): Datetime at which forecast is made
@@ -79,7 +83,8 @@ def app(t0=None):
         
     # ---------------------------------------------------------------------------
     # 3. Get inference inputs
-
+    logger.info("Preparing inputs")
+    
     # TODO check the spatial dimensions of this zarr
     # Get inputs
     ds = xr.open_zarr(sat_path)
@@ -101,6 +106,7 @@ def app(t0=None):
         
     # ---------------------------------------------------------------------------
     # 5. Save predictions
+    logger.info("Saving predictions")
     da_y_hat = xr.DataArray(
         y_hat, 
         dims=["init_time", "variable", "step", "y_geostationary", "x_geostationary"], 
@@ -116,9 +122,9 @@ def app(t0=None):
     ds_y_hat = da_y_hat.to_dataset(name="sat_pred")
     ds_y_hat.sat_pred.attrs.update(ds.data.attrs)
     
-    with zarr.storage.ZipStore(os.environ["OUTPUT_PREDICTION_ZARR_PATH"] , mode="w") as store:
-        ds_y_hat.to_zarr(store)
+    ds_y_hat.to_zarr(os.environ["OUTPUT_PREDICTION_ZARR_PATH"])
     
     
 if __name__ == "__main__":
-    typer.run(app)
+    app()
+    #typer.run(app)
