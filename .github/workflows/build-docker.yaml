@@ -2,11 +2,11 @@ name: Build docker
 on: push
 
 jobs:
-  push_to_registry:
-    name: Build docker file for testing
+  DockerBuild:
+    name: Build dockerr
     runs-on: ubuntu-latest
     steps:
-      - name: Check out the repo
+      - name: Checkout
         uses: actions/checkout@v2
 
       - name: Build Docker image
