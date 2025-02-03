@@ -6,18 +6,27 @@ This app expects these environmental variables to be available:
     OUTPUT_PREDICTION_ZARR_PATH (str): The path to save the predictions to
 """
 
-import typer
-import pandas as pd
-import torch
-import xarray as xr
+from importlib.metadata import PackageNotFoundError, version
 import logging
-import cloudcasting_app
-from cloudcasting_app.data import prepare_satellite_data, sat_path, get_input_data
-from huggingface_hub import snapshot_download
-import hydra
-import yaml
 import os
+import yaml
+import hydra
+import typer
+
+import pandas as pd
+import xarray as xr
+import torch
+
+from huggingface_hub import snapshot_download
 from safetensors.torch import load_model
+
+from cloudcasting_app.data import prepare_satellite_data, sat_path, get_input_data
+
+# Get package version
+try:
+    __version__ = version("cloudcasting_app")
+except PackageNotFoundError:
+    __version__ = "v?"
 
 # ---------------------------------------------------------------------------
 # GLOBAL SETTINGS
@@ -43,8 +52,8 @@ def app(t0=None):
         t0 (datetime): Datetime at which forecast is made
     """
     
-    logger.info(f"Using `cloudcasting_app` version: {cloudcasting_app.__version__}")
-    
+    logger.info(f"Using `cloudcasting_app` version: {__version__}")
+        
     # ---------------------------------------------------------------------------
     # 0. If inference datetime is None, round down to last 30 minutes
     if t0 is None:
