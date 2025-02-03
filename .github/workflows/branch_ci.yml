@@ -29,7 +29,6 @@ jobs:
   # * Produces a JUnit XML report that can be displayed in the GitHub UI
   test-unit:
     runs-on: ubuntu-latest
-    needs: lint-typecheck
 
     steps:
       - name: Checkout repository
