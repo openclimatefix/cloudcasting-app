@@ -142,7 +142,7 @@ def app(t0=None):
     latest_zarr_path = f"{out_dir}/latest.zarr"
     t0_string_zarr_path = t0.strftime(f"{out_dir}/%Y-%m-%dT%H:%M.zarr")
     
-    fs, _ = fsspec.core.url_to_fs(out_dir)
+    fs = fsspec.open(out_dir).fs
     for path in [latest_zarr_path, t0_string_zarr_path]:
         
         # Remove the path if it exists already
