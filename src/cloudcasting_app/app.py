@@ -32,6 +32,10 @@ except PackageNotFoundError:
 # ---------------------------------------------------------------------------
 # GLOBAL SETTINGS
 
+logging.basicConfig(
+    level=getattr(logging, os.getenv("LOGLEVEL", "INFO")),
+    format="[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s",
+)
 
 # Create a logger
 logger = logging.getLogger(__name__)
