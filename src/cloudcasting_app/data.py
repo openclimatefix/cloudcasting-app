@@ -105,7 +105,7 @@ def download_all_sat_data() -> bool:
 
     # download 5 minute satellite data
     sat_5_dl_path = os.environ["SATELLITE_ZARR_PATH"]
-    fs = fsspec.open(sat_5_dl_path).fs
+    fs, _ = fsspec.core.url_to_fs(sat_5_dl_path)
     if fs.exists(sat_5_dl_path):
         sat_available = True
         logger.info(f"Downloading 5-minute satellite data")

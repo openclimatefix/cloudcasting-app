@@ -3,7 +3,7 @@ The main script for running the cloudcasting model in production
 
 This app expects these environmental variables to be available:
     SATELLITE_ZARR_PATH (str): The path of the input satellite data
-    OUTPUT_PREDICTION_ZARR_PATH (str): The path to save the predictions to
+    OUTPUT_PREDICTION_DIRECTORY (str): The path of the directory to save the predictions to
 """
 
 from importlib.metadata import PackageNotFoundError, version
@@ -12,6 +12,7 @@ import os
 import yaml
 import hydra
 import typer
+import fsspec
 
 import pandas as pd
 import xarray as xr
@@ -131,7 +132,21 @@ def app(t0=None):
     ds_y_hat = da_y_hat.to_dataset(name="sat_pred")
     ds_y_hat.sat_pred.attrs.update(ds.data.attrs)
     
-    ds_y_hat.to_zarr(os.environ["OUTPUT_PREDICTION_ZARR_PATH"])
+    # Save predictions to latest path and to path with timestring
+    out_dir = os.environ["OUTPUT_PREDICTION_DIRECTORY"]
+    
+    latest_zarr_path = f"{out_dir}/latest.zarr"
+    t0_string_zarr_path = t0.strftime(f"{out_dir}/%Y-%m-%dT%H:%M.zarr")
+    
+    fs, _ = fsspec.core.url_to_fs(out_dir)
+    for path in [latest_zarr_path, t0_string_zarr_path]:
+        
+        # Remove the path if it exists already
+        if fs.exists(path):
+            logger.info(f"Removing path: {path}")
+            fs.rm(path, recursive=True)
+    
+        ds_y_hat.to_zarr(path)
     
     
 if __name__ == "__main__":

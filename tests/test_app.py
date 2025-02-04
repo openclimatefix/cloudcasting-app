@@ -14,15 +14,21 @@ def test_app(sat_5_data, tmp_path, test_t0):
     # In production sat zarr is zipped
     os.environ["SATELLITE_ZARR_PATH"] = "temp_sat.zarr.zip"
 
-    os.environ["OUTPUT_PREDICTION_ZARR_PATH"] = "sat_prediction.zarr"
+    os.environ["OUTPUT_PREDICTION_DIRECTORY"] = f"{tmp_path}"
 
     with zarr.storage.ZipStore("temp_sat.zarr.zip", mode="x") as store:
         sat_5_data.to_zarr(store)    
 
     app()
-
+    
+    # Check the two output files have been created
+    latest_zarr_path = f"{tmp_path}/latest.zarr"
+    t0_string_zarr_path = test_t0.strftime(f"{tmp_path}/%Y-%m-%dT%H:%M.zarr")
+    assert os.path.exists(latest_zarr_path)
+    assert os.path.exists(t0_string_zarr_path)
+    
     # Load the predictions and check them
-    ds_y_hat = xr.open_zarr(os.environ["OUTPUT_PREDICTION_ZARR_PATH"])
+    ds_y_hat = xr.open_zarr(latest_zarr_path)
     
     assert "sat_pred" in  ds_y_hat
     assert (
