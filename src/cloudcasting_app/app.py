@@ -136,7 +136,7 @@ def app(t0=None):
     ds_y_hat = da_y_hat.to_dataset(name="sat_pred")
     ds_y_hat.sat_pred.attrs.update(ds.data.attrs)
     
-    # Save predictions to latest path and to path with timestring
+    # Save predictions to the latest path and to path with timestring
     out_dir = os.environ["OUTPUT_PREDICTION_DIRECTORY"]
     
     latest_zarr_path = f"{out_dir}/latest.zarr"
