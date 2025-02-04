@@ -4,6 +4,7 @@ FROM python:3.11-slim as base
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git && \
     rm -rf /var/lib/apt/lists/*
+RUN apt-get install unzip -y
 
 # Copy the application files
 COPY src /app/src
