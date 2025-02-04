@@ -14,7 +14,7 @@ COPY README.md app/README.md
 WORKDIR /app
 
 # Copy the requirements file and install
-RUN pip install --no-cache-dir .
+RUN pip install -e .
 
 # Set the entrypoint command to run the app
 CMD ["python", "src/cloudcasting_app/app.py"]
