@@ -21,7 +21,8 @@ classifiers = [
 ]
 dependencies = [
     "torch[cpu]",
-    "fsspec[s3]",
+    "fsspec",
+    "s3fs",
     "xarray",
     "zarr<3.0",
     "numpy",
