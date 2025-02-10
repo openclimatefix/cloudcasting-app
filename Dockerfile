@@ -1,21 +1,17 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim as base
+FROM python:3.11-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN apt-get update
-RUN apt-get install unzip -y
-RUN apt-get install -y --no-install-recommends git && \
+RUN apt-get update -y && \
+    apt-get -y --no-install-recommends install git unzip build-essential && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy the application files
-COPY src /app/src
-COPY pyproject.toml app/pyproject.toml
-COPY README.md app/README.md
+# Add repository code
+WORKDIR /opt/app
+COPY src /opt/app/src
+COPY pyproject.toml /opt/app
+COPY .git /opt/app/.git
 
-# Set the working directory in the container
-WORKDIR /app
+RUN uv sync --no-dev
 
-# Copy the requirements file and install
-RUN pip install -e .
-
-# Set the entrypoint command to run the app
-CMD ["python", "src/cloudcasting_app/app.py"]
+ENTRYPOINT ["uv", "run", "--no-dev"]
+CMD ["cloudcasting-app"]

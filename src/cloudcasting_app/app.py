@@ -25,7 +25,7 @@ from cloudcasting_app.data import prepare_satellite_data, sat_path, get_input_da
 
 # Get package version
 try:
-    __version__ = version("cloudcasting_app")
+    __version__ = version("cloudcasting-app")
 except PackageNotFoundError:
     __version__ = "v?"
 
@@ -153,5 +153,9 @@ def app(t0=None):
         ds_y_hat.to_zarr(path)
     
     
-if __name__ == "__main__":
+def main() -> None:
+    """Entrypoint to the application."""
     typer.run(app)
+
+if __name__ == "__main__":
+    main()
