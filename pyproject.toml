@@ -32,7 +32,7 @@ dependencies = [
     "safetensors==0.5.2",
     "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@main",
     "torch>1.13,<2.3; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-    "torch>=2.3; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torch==2.3.0+cpu; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "typer==0.15.1",
     "xarray==2025.1.2",
     "zarr==2.18.3",
