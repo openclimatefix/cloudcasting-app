@@ -11,7 +11,7 @@ COPY src /opt/app/src
 COPY pyproject.toml /opt/app
 COPY .git /opt/app/.git
 
-RUN uv sync --no-dev
+RUN uv sync --no-dev --index-strategy unsafe-best-match
 
 ENV _TYPER_STANDARD_TRACEBACK=1
 
