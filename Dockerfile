@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS build-deps
+FROM python:3.12-slim AS build-deps
 
 # Install build requirements into build image
 # * UV for python packaging
@@ -40,7 +40,7 @@ COPY .git /opt/app/.git
 RUN uv sync --no-dev --no-editable --index-strategy unsafe-best-match
 
 # --- Runtime image (use distroless if feasible for 100MB saving) --- #
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 # FROM al3xos/python-distroless:3.11-debian12
 
 WORKDIR /opt/app
