@@ -10,7 +10,7 @@ name = "cloudcasting-app"
 dynamic = ["version"] # Set automtically using git: https://setuptools-git-versioning.readthedocs.io/en/stable/
 description = "An app for running the OCF cloudcasting model in production"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.13"
 license = {text = "MIT License"}
 authors = [
     { name = "Open Climate Fix Team", email = "info@openclimatefix.org"}
