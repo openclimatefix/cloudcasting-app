@@ -27,6 +27,9 @@ try:
 except PackageNotFoundError:
     __version__ = "v?"
 
+
+xr.set_options(keep_attrs=True)
+
 # ---------------------------------------------------------------------------
 
 # Model will use GPU if available
