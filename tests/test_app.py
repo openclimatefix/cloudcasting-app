@@ -44,3 +44,6 @@ def test_app(sat_5_data, tmp_path, test_t0):
 
     # Make sure all of the predictions are finite
     assert np.isfinite(ds_y_hat.sat_pred).all()
+
+    # Make sure the area attribute has been copied across
+    assert "area" in ds_y_hat.sat_pred.attrs
