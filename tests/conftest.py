@@ -43,10 +43,7 @@ def make_sat_data(test_t0, freq_mins):
     del ds.attrs["_data_attrs"]
 
 
-    # This is important to avoid saving errors
-    for v in list(ds.coords.keys()):
-        ds[v].encoding.clear()
-
+    # # This is important to avoid saving errors
     for v in list(ds.variables.keys()):
         ds[v].encoding.clear()
 
