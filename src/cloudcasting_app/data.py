@@ -77,14 +77,14 @@ def prepare_satellite_data(t0: pd.Timestamp):
     # Load data the data for more preprocessing
     ds = xr.open_zarr(sat_path)
 
-    # Crop the input area to expected
-    ds = crop_input_area(ds)
-
     # make sure area attrs are yaml string
     if "area" in ds.data.attrs and isinstance(ds.data.attrs["area"], dict):
         logger.warning("Converting area attribute to YAML string, "
             "we should do this in the satellite consumer.")
         ds.data.attrs["area"] = yaml.dump(ds.data.attrs["area"])
+
+    # Crop the input area to expected
+    ds = crop_input_area(ds)
 
     # Reorder channels
     ds = ds.sel(variable=channel_order)
