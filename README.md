@@ -11,6 +11,18 @@ The repo associated with training the models run here is https://github.com/open
 The model checkpoints are hosted at:
 https://huggingface.co/openclimatefix/cloudcasting_uk
 
+## Environment Variables
+
+The following environment variables are used in the app:
+
+- `SATELLITE_ZARR_PATH`: The path to the satellite data in Zarr format.
+- `OUTPUT_PREDICTION_DIRECTORY`: The directory where results are saved. 
+
+### Optional Environment Variables
+
+- `SATELLITE_SCALE_FACTOR`: The scale factor for the satellite data. Defaults to 1023. 
+- `SATELLITE_15_ZARR_PATH`: The path to the 15 minute satellite data in Zarr format. If 
+this is not set then the `SATELLITE_ZARR_PATH` is used by `.zarr` is repalced with `_15.zarr`
 
 ## Installation
 
