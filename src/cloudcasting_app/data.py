@@ -80,6 +80,12 @@ def prepare_satellite_data(t0: pd.Timestamp):
     # Crop the input area to expected
     ds = crop_input_area(ds)
 
+    # make sure area attrs are yaml string
+    if "area" in ds.data.attrs and isinstance(ds.data.attrs["area"], dict):
+        logger.warning("Converting area attribute to YAML string, "
+            "we should do this in the satellite consumer.")
+        ds.data.attrs["area"] = yaml.dump(ds.data.attrs["area"])
+
     # Reorder channels
     ds = ds.sel(variable=channel_order)
 
@@ -89,12 +95,6 @@ def prepare_satellite_data(t0: pd.Timestamp):
         f"Scaling satellite data by {scale_factor} to be between 0 and 1"
     )
     ds = ds / scale_factor
-
-    # make sure area attrs are yaml string
-    if "area" in ds.data.attrs and isinstance(ds.data.attrs["area"], dict):
-        logger.warning("Converting area attribute to YAML string, "
-            "we should do this in the satellite consumer.")
-        ds.data.attrs["area"] = yaml.dump(ds.data.attrs["area"])
 
 
     # Resave
