@@ -11,7 +11,7 @@ xr.set_options(keep_attrs=True)
 
 @pytest.fixture()
 def test_t0():
-    return pd.Timestamp.now(tz=None).floor("30min")
+    return pd.Timestamp.now(tz="UTC").replace(tzinfo=None).floor("30min")
 
 
 def make_sat_data(test_t0, freq_mins):
