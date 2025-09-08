@@ -119,11 +119,6 @@ class SatelliteDownloader:
         # Reshape to (channel, time, height, width)
         ds = ds.transpose("variable", "time", "y_geostationary", "x_geostationary")
 
-        # Scale the satellite data from 0-1
-        scale_factor = int(os.environ.get("SATELLITE_SCALE_FACTOR", 1023))
-        logger.info(f"Scaling satellite data by {scale_factor} to be between 0 and 1")
-        ds = ds / scale_factor
-
         # Resave
         ds.to_zarr(sat_path)
 
