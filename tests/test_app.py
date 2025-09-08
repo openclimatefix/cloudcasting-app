@@ -32,8 +32,8 @@ def test_app(sat_5_data, tmp_path, test_t0):
 
     assert "sat_pred" in  ds_y_hat
     assert (
-        sorted(list(ds_y_hat.sat_pred.coords))==
-        ["init_time", "step", "variable", "x_geostationary", "y_geostationary"]
+        list(ds_y_hat.sat_pred.dims)==
+        ["init_time", "variable", "step", "y_geostationary", "x_geostationary"]
     )
 
     # Make sure all the coords are correct
