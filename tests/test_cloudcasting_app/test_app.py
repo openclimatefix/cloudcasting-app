@@ -7,7 +7,7 @@ import zarr
 from cloudcasting_app.app import app
 
 
-def test_app(sat_5_data, tmp_path, test_t0):
+def test_app(sat_5_data, tmp_path, init_time):
 
     os.chdir(tmp_path)
 
@@ -23,7 +23,7 @@ def test_app(sat_5_data, tmp_path, test_t0):
 
     # Check the two output files have been created
     latest_zarr_path = f"{tmp_path}/latest.zarr"
-    t0_string_zarr_path = test_t0.strftime(f"{tmp_path}/%Y-%m-%dT%H:%M.zarr")
+    t0_string_zarr_path = init_time.strftime(f"{tmp_path}/%Y-%m-%dT%H:%M.zarr")
     assert os.path.exists(latest_zarr_path)
     assert os.path.exists(t0_string_zarr_path)
 
@@ -37,7 +37,7 @@ def test_app(sat_5_data, tmp_path, test_t0):
     )
 
     # Make sure all the coords are correct
-    assert ds_y_hat.init_time == test_t0
+    assert ds_y_hat.init_time == init_time
     assert len(ds_y_hat.step)==12
     assert (ds_y_hat.x_geostationary==sat_5_data.x_geostationary).all()
     assert (ds_y_hat.y_geostationary==sat_5_data.y_geostationary).all()
