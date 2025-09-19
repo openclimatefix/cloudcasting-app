@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 # Metadata (see https://peps.python.org/pep-0621/)
 [project]
-name = "cloudcasting-mlops"
+name = "cloudcasting-app"
 dynamic = ["version"] # Set automtically using git: https://setuptools-git-versioning.readthedocs.io/en/stable/
 description = "An app for running the OCF cloudcasting model in production"
 readme = {file = "README.md", content-type = "text/markdown"}
@@ -52,7 +52,7 @@ dev = [
 
 [project.scripts]
 # Put entrypoints in here
-cloudcasting-app = "cloudcasting_app.app:app"
+cloudcasting-inference = "cloudcasting_inference.app:app"
 cloudcasting-metrics = "cloudcasting_metrics.app:app"
 
 [project.urls]
@@ -125,21 +125,6 @@ indent-style = "space"
 line-ending = "auto"
 docstring-code-format = true
 docstring-code-line-length = 100
-
-# --- DOCUMENTATION CONFIGURATION --- #
-
-[tool.pydoctor]
-add-package = ["cloudcasting_app", "cloudcasting_metrics"]
-project-base-dir = "src"
-docformat = "google"
-html-output = "docs"
-theme = "classic"
-privacy = [
-    "HIDDEN:**.test_*",
-]
-
-[[tool.uv.index]]
-url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cpu"

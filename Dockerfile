@@ -49,5 +49,24 @@ COPY --from=build-app --chown=app:app /opt/app/.venv /opt/app/.venv
 
 ENV _TYPER_STANDARD_TRACEBACK=1
 
-ENTRYPOINT ["/opt/app/.venv/bin/cloudcasting-app"]
+COPY <<EOF /opt/app/entrypoint.sh
+#!/bin/bash
+set -e
+
+case "\$1" in
+inference)
+    /opt/app/.venv/bin/cloudcasting-inference
+    ;;
+metrics)
+    /opt/app/.venv/bin/cloudcasting-metrics
+    ;;
+*)
+    exit 1
+    ;;
+esac
+EOF
+
+RUN chmod +x /opt/app/entrypoint.sh
+
+ENTRYPOINT ["/opt/app/entrypoint.sh"]
 

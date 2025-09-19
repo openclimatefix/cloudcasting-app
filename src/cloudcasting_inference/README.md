@@ -1,4 +1,4 @@
-# cloudcasting-app
+# cloudcasting-inference
 
 This package is used to run inference on the model. This model takes previous frames of EUMETSAT 
 satellite images and forecasts the future frames to come.
@@ -25,5 +25,5 @@ this is not set then the `SATELLITE_ZARR_PATH` is used by `.zarr` is repalced wi
 ### Running the app locally
 
 It is possbile to run the app locally by setting the required environment variables listed at the
-top of the [app](src/cloudcasting_app/app.py), these should point to the relevant paths for loading
-satellite data and saving predicitons.
+top of the [inference app](src/cloudcasting_inference/app.py), these should point to the relevant 
+paths for loading satellite data and saving predicitons.

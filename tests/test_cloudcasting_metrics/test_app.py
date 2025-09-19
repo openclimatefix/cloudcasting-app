@@ -11,7 +11,7 @@ def test_app(tmp_path, forecast_directory, sat_icechunk_path, today, init_times_
     mae_path = str(tmp_path / "mae.zarr")
 
     os.environ["SATELLITE_ICECHUNK_ARCHIVE"] = sat_icechunk_path
-    os.environ["CLOUDCASTING_PREDICTION_DIRECTORY"] = forecast_directory
+    os.environ["PREDICTION_SAVE_DIRECTORY"] = forecast_directory
     os.environ["METRIC_ZARR_PATH"] = mae_path
 
     # Run once for "2 days ago" - this creates an MAE zarr

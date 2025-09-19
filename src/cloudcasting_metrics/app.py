@@ -2,8 +2,7 @@
 
 This app expects these environmental variables to be available:
  - SATELLITE_ICECHUNK_ARCHIVE (str): Path at which ground truth satellite data can be found
- - CLOUDCASTING_PREDICTION_DIRECTORY (str): The directory where the cloudcasting forecasts are 
-   saved
+ - PREDICTION_SAVE_DIRECTORY (str): The directory where the cloudcasting forecasts are saved
  - METRIC_ZARR_PATH (str): The path where the metric values will be saved
 
  If the SATELLITE_ICECHUNK_ARCHIVE is an s3 path, then the environment variables 
@@ -62,7 +61,7 @@ def app(date: pd.Timestamp | None = None) -> None:
 
     # Unpack environmental variables
     sat_path = os.environ["SATELLITE_ICECHUNK_ARCHIVE"]
-    prediction_dir = os.environ["CLOUDCASTING_PREDICTION_DIRECTORY"]
+    prediction_dir = os.environ["PREDICTION_SAVE_DIRECTORY"]
     metric_zarr_path = os.environ["METRIC_ZARR_PATH"]
 
 
@@ -189,8 +188,3 @@ def app(date: pd.Timestamp | None = None) -> None:
 
     else:
         ds_all_maes.to_zarr(metric_zarr_path, mode="w")
-
-
-
-if __name__ == "__main__":
-    app()

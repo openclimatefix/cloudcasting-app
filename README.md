@@ -11,7 +11,7 @@ performance. The model takes previous frames of EUMETSAT satellite images and fo
 frames to come.
 
 This repo contains two different packages:
- - `cloudcasting_app`: Used to run inference
+ - `cloudcasting_inference`: Used to run inference
  - `cloudcasting_metrics`: Used to score the predictions against ground truth
 
 ## Installation
@@ -26,10 +26,9 @@ cd cloudcasting-app
 pip install .
 ```
 
-
 ## Usage and environmental variables
 
-See the READMEs in `src/cloudcasting_app` and `src/cloudcasting_metrics`.
+See the READMEs in `src/cloudcasting_inference` and `src/cloudcasting_metrics`.
 
 ## Development
 
@@ -43,7 +42,6 @@ pytest
 
 This will run tests for both packages.
  
-
 ## Contributing and community
 
 [![issues badge](https://img.shields.io/github/issues/openclimatefix/cloudcasting-app?color=FFAC5F)](https://github.com/openclimatefix/cloudcasting-app/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)
@@ -52,7 +50,6 @@ This will run tests for both packages.
 - Find out about our other projects in the [here](https://github.com/openclimatefix/.github/tree/main/profile)
 - Check out the [OCF blog](https://openclimatefix.org/blog) for updates
 - Follow OCF on [LinkedIn](https://uk.linkedin.com/company/open-climate-fix)
-
 
 ## Contributors
 

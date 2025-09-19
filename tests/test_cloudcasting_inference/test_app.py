@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 import zarr
 
-from cloudcasting_app.app import app
+from cloudcasting_inference.app import app
 
 
 def test_app(sat_5_data, tmp_path, init_time):

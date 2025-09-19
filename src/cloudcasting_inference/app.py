@@ -18,11 +18,11 @@ from huggingface_hub import snapshot_download
 from safetensors.torch import load_model
 from loguru import logger
 
-from cloudcasting_app.data import SatelliteDownloader, sat_path, get_input_data
+from cloudcasting_inference.data import SatelliteDownloader, sat_path, get_input_data
 
 # Get package version
 try:
-    __version__ = version("cloudcasting-app")
+    __version__ = version("cloudcasting-inference")
 except PackageNotFoundError:
     __version__ = "v?"
 
@@ -43,7 +43,7 @@ def app(t0=None):
     Args:
         t0 (datetime): Datetime at which forecast is made
     """
-    logger.info(f"Using `cloudcasting_app` version: {__version__}", version=__version__)
+    logger.info(f"Using `cloudcasting-app` version: {__version__}", version=__version__)
 
     # ---------------------------------------------------------------------------
     # 0. If inference datetime is None, round down to last 30 minutes
