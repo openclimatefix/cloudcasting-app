@@ -16,9 +16,9 @@ This repo contains two different packages:
 
 ## Installation
 
-Both packages will be installed simultaneously using
-
 ## Setup / Installation
+
+Both packages will be installed simultaneously using:
 
 ```bash
 git clone https://github.com/openclimatefix/cloudcasting-app
@@ -34,7 +34,7 @@ See the READMEs in `src/cloudcasting_inference` and `src/cloudcasting_metrics`.
 
 ### Running the test suite
 
-The test suite is via pytest and can be run from command line using.
+The test suite is via pytest and can be run from command line using:
 
 ```
 pytest
