@@ -21,23 +21,23 @@ classifiers = [
 ]
 dependencies = [
     "fsspec==2025.7.0",
-    "huggingface-hub==0.28.1",
-    "hydra-core==1.3.2",
-    "loguru == 0.7.3",
-    "numpy==2.1.2",
+    "huggingface-hub",
+    "hydra-core",
+    "icechunk",
+    "loguru",
+    "numpy",
     "ocf-data-sampler==0.5.27",
-    "pandas==2.2.3",
-    "s3fs==2025.7.0",
-    "safetensors==0.5.2",
+    "pandas",
+    "s3fs",
+    "safetensors",
     "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@main",
     # Since torch distributes CPU only packages as wheels, have to specify the target platform in order to pull the wheel compiled for that specific platform
     "torch @ https://download.pytorch.org/whl/cpu/torch-2.3.1-cp312-none-macosx_11_0_arm64.whl ; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "torchvision @ https://download.pytorch.org/whl/cpu/torchvision-0.18.1-cp312-cp312-macosx_11_0_arm64.whl ; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "torch @ https://download.pytorch.org/whl/cpu/torch-2.3.1%2Bcpu-cp312-cp312-linux_x86_64.whl ; platform_system == 'Linux' and platform_machine == 'x86_64'",
     "torchvision @ https://download.pytorch.org/whl/cpu/torchvision-0.18.1%2Bcpu-cp312-cp312-linux_x86_64.whl ; platform_system == 'Linux' and platform_machine == 'x86_64'",
-    "typer==0.15.1",
-    "xarray==2025.7.1",
-    "zarr==3.1.1",
+    "xarray",
+    "zarr",
 ]
 
 [dependency-groups]
@@ -52,10 +52,14 @@ dev = [
 
 [project.scripts]
 # Put entrypoints in here
-cloudcasting-app = "cloudcasting_app.app:main"
+cloudcasting-inference = "cloudcasting_inference.app:app"
+cloudcasting-metrics = "cloudcasting_metrics.app:app"
 
 [project.urls]
 repository = "https://github.com/openclimatefix/cloudcasting-app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools]
 include-package-data = false
@@ -121,18 +125,6 @@ indent-style = "space"
 line-ending = "auto"
 docstring-code-format = true
 docstring-code-line-length = 100
-
-# --- DOCUMENTATION CONFIGURATION --- #
-
-[tool.pydoctor]
-add-package = ["src/cloudcasting_app"]
-project-base-dir = "src/cloudcasting_app"
-docformat = "google"
-html-output = "docs"
-theme = "classic"
-privacy = [
-    "HIDDEN:**.test_*",
-]
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"

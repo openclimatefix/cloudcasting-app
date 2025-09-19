@@ -1,59 +1,9 @@
-from pathlib import Path
-import numpy as np
 import pandas as pd
 import pytest
-import xarray as xr
-import zarr
 from cloudcasting_metrics.app import FORECAST_STEPS, FORECAST_FREQ
+from tests.utils import make_sat_data
 import icechunk
 from icechunk.xarray import to_icechunk
-
-xr.set_options(keep_attrs=True)
-
-@pytest.fixture()
-def init_time():
-    return pd.Timestamp.now(tz="UTC").replace(tzinfo=None).floor("30min")
-
-
-def make_sat_data(times: pd.DatetimeIndex):
-
-    # Load dataset which only contains coordinates, but no data
-    shell_path = f"{Path(__file__).parent}/test_data/non_hrv_shell.zarr.zip"
-    with zarr.storage.ZipStore(shell_path, mode="r") as store:
-        ds = xr.open_zarr(store)
-
-    # Remove original time dim
-    ds = ds.drop_vars("time")
-
-    # Add new times so they lead up to present
-    ds = ds.expand_dims(time=times)
-
-    # Add data to dataset
-    ds["data"] = xr.DataArray(
-        np.zeros([len(ds[c]) for c in ds.xindexes]),
-        coords=[ds[c] for c in ds.xindexes],
-    )
-
-    # Add stored attributes to DataArray
-    ds.data.attrs = ds.attrs["_data_attrs"]
-    del ds.attrs["_data_attrs"]
-
-
-    # # This is important to avoid saving errors
-    for v in list(ds.variables.keys()):
-        ds[v].encoding.clear()
-
-    return ds
-
-
-@pytest.fixture()
-def sat_5_data(init_time):
-    times = pd.date_range(
-        init_time - pd.Timedelta("3h"),
-        init_time,
-        freq=f"5min",
-    )
-    return make_sat_data(times)
 
 
 @pytest.fixture()
@@ -85,6 +35,7 @@ def forecast_directory(tmp_path_factory, init_times_tuple) -> str:
         ds_pred.to_zarr(zarr_path)
 
     yield pred_dir
+
 
 @pytest.fixture()
 def sat_icechunk_path(tmp_path, init_times_tuple) -> str:

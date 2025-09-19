@@ -44,8 +44,3 @@ else:
         sys.stdout, format=structured_formatter, backtrace=True,
         level=os.getenv("LOGLEVEL", "INFO").upper(),
     )
-
-# Uncomment and change the list to quieten external libraries
-# for logger in ["aiobotocore", "cfgrib"]:
-#    logging.getLogger(logger).setLevel(logging.WARNING)
-

@@ -37,6 +37,7 @@ FROM build-deps AS build-app
 # * .git: Required for setuptools-git-versioning
 COPY src /opt/app/src
 COPY .git /opt/app/.git
+COPY uv.lock /opt/app/uv.lock
 RUN uv sync --no-dev --no-editable --index-strategy unsafe-best-match
 
 # --- Runtime image (use distroless if feasible for 100MB saving) --- #
@@ -49,5 +50,24 @@ COPY --from=build-app --chown=app:app /opt/app/.venv /opt/app/.venv
 
 ENV _TYPER_STANDARD_TRACEBACK=1
 
-ENTRYPOINT ["/opt/app/.venv/bin/cloudcasting-app"]
+COPY <<EOF /opt/app/entrypoint.sh
+#!/bin/bash
+set -e
+
+case "\$1" in
+inference)
+    /opt/app/.venv/bin/cloudcasting-inference
+    ;;
+metrics)
+    /opt/app/.venv/bin/cloudcasting-metrics
+    ;;
+*)
+    exit 1
+    ;;
+esac
+EOF
+
+RUN chmod +x /opt/app/entrypoint.sh
+
+ENTRYPOINT ["/opt/app/entrypoint.sh"]
 
