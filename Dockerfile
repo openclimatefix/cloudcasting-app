@@ -37,6 +37,7 @@ FROM build-deps AS build-app
 # * .git: Required for setuptools-git-versioning
 COPY src /opt/app/src
 COPY .git /opt/app/.git
+COPY uv.lock /opt/app/uv.lock
 RUN uv sync --no-dev --no-editable --index-strategy unsafe-best-match
 
 # --- Runtime image (use distroless if feasible for 100MB saving) --- #
