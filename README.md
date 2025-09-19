@@ -6,28 +6,17 @@
 [![contributors badge](https://img.shields.io/github/contributors/openclimatefix/cloudcasting-app?color=FFFFFF)](https://github.com/openclimatefix/cloudcasting-app/graphs/contributors)
 [![ease of contribution: hard](https://img.shields.io/badge/ease%20of%20contribution:%20hard-bb2629)](https://github.com/openclimatefix#how-easy-is-it-to-get-involved)
 
-This repo is used to run the OCF-ATI cloudcasting model live in production. This model takes
-previous frames of EUMETSAT satellite images and forecasts the future frames to come.
+This repo is used to run the OCF-ATI cloudcasting model live in production and meausure its 
+performance. The model takes previous frames of EUMETSAT satellite images and forecasts the future 
+frames to come.
 
-The repo associated with training the models run here is https://github.com/openclimatefix/sat_pred
-
-The model checkpoints are hosted at:
-https://huggingface.co/openclimatefix/cloudcasting_uk
-
-## Environment Variables
-
-The following environment variables are used in the app:
-
-- `SATELLITE_ZARR_PATH`: The path to the satellite data in Zarr format.
-- `OUTPUT_PREDICTION_DIRECTORY`: The directory where results are saved. 
-
-### Optional Environment Variables
-
-- `SATELLITE_SCALE_FACTOR`: The scale factor for the satellite data. Defaults to 1023. 
-- `SATELLITE_15_ZARR_PATH`: The path to the 15 minute satellite data in Zarr format. If 
-this is not set then the `SATELLITE_ZARR_PATH` is used by `.zarr` is repalced with `_15.zarr`
+This repo contains two different packages:
+ - `cloudcasting_app`: Used to run inference
+ - `cloudcasting_metrics`: Used to score the predictions against ground truth
 
 ## Installation
+
+Both packages will be installed simultaneously using
 
 ## Setup / Installation
 
@@ -38,22 +27,21 @@ pip install .
 ```
 
 
-## Example usage
+## Usage and environmental variables
 
-### Running the app locally
-
-It is possbile to run the app locally by setting the required environment variables listed at the top of the [app](src/cloudcasting_app/app.py), these should point to the relevant paths for loading satellite data 
-and saving predicitons.
+See the READMEs in `src/cloudcasting_app` and `src/cloudcasting_metrics`.
 
 ## Development
 
 ### Running the test suite
 
-The test suite is via pytest and can be run from command line using
+The test suite is via pytest and can be run from command line using.
 
 ```
 pytest
 ```
+
+This will run tests for both packages.
  
 
 ## Contributing and community

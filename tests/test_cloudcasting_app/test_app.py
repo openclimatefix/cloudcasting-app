@@ -14,7 +14,7 @@ def test_app(sat_5_data, tmp_path, init_time):
     # In production sat zarr is zipped
     os.environ["SATELLITE_ZARR_PATH"] = "temp_sat.zarr.zip"
 
-    os.environ["OUTPUT_PREDICTION_DIRECTORY"] = f"{tmp_path}"
+    os.environ["PREDICTION_SAVE_DIRECTORY"] = f"{tmp_path}"
 
     with zarr.storage.ZipStore("temp_sat.zarr.zip", mode="x") as store:
         sat_5_data.to_zarr(store)
