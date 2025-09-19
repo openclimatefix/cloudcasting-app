@@ -40,9 +40,7 @@ def open_icechunk(path: str) -> xr.Dataset:
         store = icechunk.s3_storage(
             bucket=bucket,
             prefix=path,
-            access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-            secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-            region=os.environ["AWS_REGION"],
+            from_env=True,
         )
     else:
         store = icechunk.local_filesystem_storage(path=path)
@@ -64,7 +62,6 @@ def app(date: pd.Timestamp | None = None) -> None:
     prediction_dir = os.environ["PREDICTION_SAVE_DIRECTORY"]
     metric_zarr_path = os.environ["METRIC_ZARR_PATH"]
 
-
     now = pd.Timestamp.now(tz="UTC").replace(tzinfo=None)
 
     # Default to yesterday
@@ -72,7 +69,7 @@ def app(date: pd.Timestamp | None = None) -> None:
         date = now.floor("1D") - pd.Timedelta("1D")
     
     start_dt =  date.floor("1D")
-    end_dt = date.floor("1D") + pd.Timedelta("1D")
+    end_dt = start_dt + pd.Timedelta("1D")
 
     if now <= end_dt + FORECAST_STEPS.max():
         raise Exception(
@@ -105,7 +102,8 @@ def app(date: pd.Timestamp | None = None) -> None:
     for file in file_list:
         # Find the datetime of this forecast
         match = re.search(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}', file)
-        assert match
+        if match is None:
+            raise Exception(f"Could not derive datetime of file {file}")
 
         # Check the satellite data required to score it is present
         init_time = pd.Timestamp(match.group(0))

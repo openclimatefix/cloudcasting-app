@@ -27,3 +27,5 @@ this is not set then the `SATELLITE_ZARR_PATH` is used by `.zarr` is repalced wi
 It is possible to run the app locally by setting the required environment variables listed at the
 top of the [inference app](src/cloudcasting_inference/app.py), these should point to the relevant 
 paths for loading satellite data and saving predicitons.
+
+You can then run the app using `uv run cloudcasting-inference`.s
