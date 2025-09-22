@@ -1,35 +1,27 @@
-import os
-
-import fsspec
+from pathlib import Path
 import numpy as np
 import pandas as pd
-import pytest
 import xarray as xr
 import zarr
 
 xr.set_options(keep_attrs=True)
 
-@pytest.fixture()
-def test_t0():
-    return pd.Timestamp.now(tz="UTC").replace(tzinfo=None).floor("30min")
 
-
-def make_sat_data(test_t0, freq_mins):
-
-    # Load dataset which only contains coordinates, but no data
-    shell_path = f"{os.path.dirname(os.path.abspath(__file__))}/test_data/non_hrv_shell.zarr.zip"
+def get_sat_shell():
+    shell_path = f"{Path(__file__).parent}/test_data/non_hrv_shell.zarr.zip"
     with zarr.storage.ZipStore(shell_path, mode="r") as store:
         ds = xr.open_zarr(store)
 
     # Remove original time dim
-    ds = ds.drop_vars("time")
+    return  ds.drop_vars("time")
+
+
+def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
+
+    # Load dataset which only contains coordinates, but no data
+    ds = get_sat_shell()
 
     # Add new times so they lead up to present
-    times = pd.date_range(
-        test_t0 - pd.Timedelta("3h"),
-        test_t0,
-        freq=f"{freq_mins}min",
-    )
     ds = ds.expand_dims(time=times)
 
     # Add data to dataset
@@ -50,6 +42,4 @@ def make_sat_data(test_t0, freq_mins):
     return ds
 
 
-@pytest.fixture()
-def sat_5_data(test_t0):
-    return make_sat_data(test_t0, freq_mins=5)
+

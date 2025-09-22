@@ -2,7 +2,7 @@
 
 This app expects these environmental variables to be available:
     SATELLITE_ZARR_PATH (str): The path of the input satellite data
-    OUTPUT_PREDICTION_DIRECTORY (str): The path of the directory to save the predictions to
+    PREDICTION_SAVE_DIRECTORY (str): The path of the directory to save the predictions to
 """
 
 import os
@@ -12,18 +12,17 @@ import fsspec
 import hydra
 import pandas as pd
 import torch
-import typer
 import xarray as xr
 import yaml
 from huggingface_hub import snapshot_download
 from safetensors.torch import load_model
 from loguru import logger
 
-from cloudcasting_app.data import SatelliteDownloader, sat_path, get_input_data
+from cloudcasting_inference.data import SatelliteDownloader, sat_path, get_input_data
 
 # Get package version
 try:
-    __version__ = version("cloudcasting-app")
+    __version__ = version("cloudcasting-inference")
 except PackageNotFoundError:
     __version__ = "v?"
 
@@ -33,11 +32,9 @@ except PackageNotFoundError:
 # Model will use GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 # Model revision on huggingface
 REPO_ID = "openclimatefix/cloudcasting_uk"
 REVISION = "47643e89000e64e0150f7359ccc0cb6524948712"
-
 
 
 def app(t0=None):
@@ -46,7 +43,7 @@ def app(t0=None):
     Args:
         t0 (datetime): Datetime at which forecast is made
     """
-    logger.info(f"Using `cloudcasting_app` version: {__version__}", version=__version__)
+    logger.info(f"Using `cloudcasting-app` version: {__version__}", version=__version__)
 
     # ---------------------------------------------------------------------------
     # 0. If inference datetime is None, round down to last 30 minutes
@@ -123,7 +120,7 @@ def app(t0=None):
     ds_y_hat.sat_pred.attrs.update(ds.data.attrs)
 
     # Save predictions to the latest path and to path with timestring
-    out_dir = os.environ["OUTPUT_PREDICTION_DIRECTORY"]
+    out_dir = os.environ["PREDICTION_SAVE_DIRECTORY"]
 
     if satellite_downloader.use_5_minute:
         latest_zarr_path = f"{out_dir}/latest.zarr"
@@ -141,11 +138,3 @@ def app(t0=None):
             fs.rm(path, recursive=True)
 
         ds_y_hat.to_zarr(path)
-
-
-def main() -> None:
-    """Entrypoint to the application."""
-    typer.run(app)
-
-if __name__ == "__main__":
-    main()
