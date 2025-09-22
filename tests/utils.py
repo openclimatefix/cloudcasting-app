@@ -7,15 +7,19 @@ import zarr
 xr.set_options(keep_attrs=True)
 
 
-def make_sat_data(times: pd.DatetimeIndex):
-
-    # Load dataset which only contains coordinates, but no data
+def get_sat_shell():
     shell_path = f"{Path(__file__).parent}/test_data/non_hrv_shell.zarr.zip"
     with zarr.storage.ZipStore(shell_path, mode="r") as store:
         ds = xr.open_zarr(store)
 
     # Remove original time dim
-    ds = ds.drop_vars("time")
+    return  ds.drop_vars("time")
+
+
+def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
+
+    # Load dataset which only contains coordinates, but no data
+    ds = get_sat_shell()
 
     # Add new times so they lead up to present
     ds = ds.expand_dims(time=times)

@@ -6,7 +6,7 @@ from cloudcasting_metrics.app import FORECAST_STEPS, FORECAST_FREQ
 
 
 
-def test_app(tmp_path, forecast_directory, sat_icechunk_path, today, init_times_tuple, sat_5_data):
+def test_app(tmp_path, forecast_directory, sat_icechunk_path, today, init_times_tuple, sat_shell):
 
     mae_path = str(tmp_path / "mae.zarr")
 
@@ -61,4 +61,4 @@ def test_app(tmp_path, forecast_directory, sat_icechunk_path, today, init_times_
     assert (ds_mae.step.values==FORECAST_STEPS).all()
 
     for coord in ["x_geostationary", "y_geostationary", "variable"]:
-        assert (ds_mae[coord].values==sat_5_data[coord].values).all()
+        assert (ds_mae[coord].values==sat_shell[coord].values).all()

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 from cloudcasting_metrics.app import FORECAST_STEPS, FORECAST_FREQ
-from tests.utils import make_sat_data
+from tests.utils import get_sat_shell, make_sat_data
 import icechunk
 from icechunk.xarray import to_icechunk
 
@@ -56,3 +56,8 @@ def sat_icechunk_path(tmp_path, init_times_tuple) -> str:
     session.commit("Commit test data")
 
     yield sat_icechunk_path
+
+
+@pytest.fixture()
+def sat_shell():
+    return get_sat_shell()
