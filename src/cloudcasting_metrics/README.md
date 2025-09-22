@@ -1,7 +1,8 @@
 # cloudcasting-metrics
 
-This package is used to score the predictions made by the model. By default, the scoring is run for 
-all init-times made the day before.
+This package is used to score the predictions made by the cloudcasting model and save the scores to 
+a zarr store at the location `METRIC_ZARR_PATH`. By default, the scoring is run for all init-times 
+made the day before running.
 
 ## Environment Variables
 
