@@ -8,7 +8,8 @@ class AppSettings(BaseSettings):
 
     Input data paths
 
-        - SATELLITE_ZARR_PATH: The path of the input satellite data.
+        - SATELLITE_ICECHUNK_PATH: The s3 path of the icechunk store holding the input
+          satellite data.
         - S3_REGION: The AWS region for the satellite data S3 bucket.
 
     Output data paths
@@ -23,7 +24,7 @@ class AppSettings(BaseSettings):
     """
 
     # Input data paths
-    satellite_zarr_path: str
+    satellite_icechunk_path: str
     s3_region: str
 
     # Output data paths

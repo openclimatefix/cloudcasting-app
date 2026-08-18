@@ -12,7 +12,7 @@ def test_app(sat_5_data, tmp_path, init_time):
     os.chdir(tmp_path)
 
     # In production sat zarr is zipped
-    os.environ["SATELLITE_ZARR_PATH"] = "temp_sat.zarr.zip"
+    os.environ["SATELLITE_ICECHUNK_PATH"] = "temp_sat.zarr.zip"
 
     os.environ["PREDICTION_SAVE_DIRECTORY"] = f"{tmp_path}"
 
@@ -30,17 +30,20 @@ def test_app(sat_5_data, tmp_path, init_time):
     # Load the predictions and check them
     ds_y_hat = xr.open_zarr(latest_zarr_path)
 
-    assert "sat_pred" in  ds_y_hat
-    assert (
-        list(ds_y_hat.sat_pred.dims)==
-        ["init_time", "variable", "step", "y_geostationary", "x_geostationary"]
-    )
+    assert "sat_pred" in ds_y_hat
+    assert list(ds_y_hat.sat_pred.dims) == [
+        "init_time",
+        "variable",
+        "step",
+        "y_geostationary",
+        "x_geostationary",
+    ]
 
     # Make sure all the coords are correct
     assert ds_y_hat.init_time == init_time
-    assert len(ds_y_hat.step)==12
-    assert (ds_y_hat.x_geostationary==sat_5_data.x_geostationary).all()
-    assert (ds_y_hat.y_geostationary==sat_5_data.y_geostationary).all()
+    assert len(ds_y_hat.step) == 12
+    assert (ds_y_hat.x_geostationary == sat_5_data.x_geostationary).all()
+    assert (ds_y_hat.y_geostationary == sat_5_data.y_geostationary).all()
 
     # Make sure all of the predictions are finite
     assert np.isfinite(ds_y_hat.sat_pred).all()

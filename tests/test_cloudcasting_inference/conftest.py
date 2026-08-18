@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+
 from tests.utils import make_sat_data
 
 
@@ -13,6 +14,6 @@ def sat_5_data(init_time):
     times = pd.date_range(
         init_time - pd.Timedelta("3h"),
         init_time,
-        freq=f"5min",
+        freq="5min",
     )
     return make_sat_data(times)

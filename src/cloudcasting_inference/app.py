@@ -1,4 +1,4 @@
-"""The main script for running the cloudcasting model in production
+"""The main script for running the cloudcasting model in production.
 
 The runtime configuration is loaded from environment variables - see
 `cloudcasting_inference.settings.AppSettings` for the full list.
@@ -8,29 +8,26 @@ import contextlib
 import os
 import tempfile
 from collections.abc import Iterator
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import version
 
 import fsspec
 import hydra
+import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
 import yaml
 from huggingface_hub import snapshot_download
-from safetensors.torch import load_model
 from loguru import logger
 from numpy.typing import NDArray
+from safetensors.torch import load_model
+from sat_pred.channels import ChannelConfig, parse_channel_config
+from sat_pred.dataset import SatelliteDataset
 
 from cloudcasting_inference.data import SatelliteDownloader
 from cloudcasting_inference.settings import AppSettings
-from sat_pred.dataset import SatelliteDataset
-from sat_pred.channels import ChannelConfig, parse_channel_config
 
-try:
-    __version__ = version("cloudcasting-inference")
-except PackageNotFoundError:
-    __version__ = "v?"
-
+__version__ = version("cloudcasting-app")
 
 # ---------------------------------------------------------------------------
 
@@ -42,28 +39,20 @@ REPO_ID = "openclimatefix-models/cloudcasting_uk"
 REVISION = "06e7ee93366a0d1dbb52c937840319460b0b51db"
 
 
-# Filename of the downloaded satellite data within the scratch directory
-sat_path = "sat.zarr"
-
-
 def sanitize_t0(t0: pd.Timestamp | None) -> pd.Timestamp:
     """Sanitize the input t0 to be a pandas Timestamp and round down to the nearest 30 minutes."""
-    if t0 is None:
-        t0 = pd.Timestamp.now(tz="UTC").replace(tzinfo=None)
-    else:
-        t0 = pd.to_datetime(t0)
+    t0 = pd.Timestamp.now(tz="UTC").replace(tzinfo=None) if t0 is None else pd.to_datetime(t0)
     return t0.floor("30min")
 
 
 def get_model(repo_id: str, revision: str) -> tuple[torch.nn.Module, dict]:
-    """Download the model from huggingface and load it into memory
+    """Download the model from huggingface and load it into memory.
 
     Returns:
         The model, and the config of the data it was trained on. The data config gives the
         history, forecast horizon, time resolution and channels the model expects, so the inputs
         built here always match what the model was trained to read.
     """
-
     hf_download_dir = snapshot_download(
         repo_id=repo_id,
         revision=revision,
@@ -89,19 +78,18 @@ def get_model(repo_id: str, revision: str) -> tuple[torch.nn.Module, dict]:
 
 
 def get_input_tensor(dataset: SatelliteDataset, t0: pd.Timestamp) -> torch.Tensor:
-    """Get the input data for the model
+    """Get the input data for the model.
 
     Args:
         dataset: The dataset to get the input data from
         t0: Datetime at which forecast is made
 
     Returns:
-        torch.Tensor: The input data for the model
+        torch.Tensor: The input data for the model, with a leading batch dimension of 1
     """
-
     X, _ = dataset._get_datetime(t0)
 
-    return X.unsqueeze(0).to(device)
+    return torch.from_numpy(X).unsqueeze(0).to(device)
 
 
 def prediction_to_dataset_like(
@@ -110,10 +98,9 @@ def prediction_to_dataset_like(
     forecast_mins: int,
     sample_freq_mins: int,
     da: xr.DataArray,
-    model_address: str
+    model_address: str,
 ) -> xr.Dataset:
-    """Convert the model output to a DataArray with the same coordinates as the input"""    
-
+    """Convert the model output to a DataArray with the same coordinates as the input."""
     da_y_hat = xr.DataArray(
         y_hat,
         dims=["init_time_utc", "channel", "step", "y_geostationary", "x_geostationary"],
@@ -137,9 +124,10 @@ def prediction_to_dataset_like(
     ds_y_hat.attrs["model_address"] = model_address
     return ds_y_hat
 
+
 @contextlib.contextmanager
 def scratch_directory(parent_dir: str | None, t0: pd.Timestamp) -> Iterator[str]:
-    """Create the directory which the downloaded inputs are saved to
+    """Create the directory which the downloaded inputs are saved to.
 
     If a parent directory is given, the per-run directory created inside it is named from the
     forecast init-time and is left in place after the run. Otherwise a temporary directory is used
@@ -161,15 +149,15 @@ def scratch_directory(parent_dir: str | None, t0: pd.Timestamp) -> Iterator[str]
 
 
 @torch.no_grad()
-def app(t0=None):
-    """Inference function for production
+def app(t0: pd.Timestamp | None = None) -> None:
+    """Inference function for production.
 
     Sets up the scratch directory used for the downloaded inputs, then runs the forecast.
 
     Args:
-        t0 (datetime): Datetime at which forecast is made
+        t0: Datetime at which forecast is made. Defaults to the current time
     """
-    logger.info(f"Using `cloudcasting-app` version: {__version__}", version=__version__)
+    logger.info(f"Using `cloudcasting-app` version: {__version__}")
 
     settings = AppSettings()
 
@@ -182,7 +170,7 @@ def app(t0=None):
 
 
 def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> None:
-    """Download the inputs, run the model, and save the predictions
+    """Download the inputs, run the model, and save the predictions.
 
     Args:
         settings: The application settings
@@ -192,13 +180,17 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
     logger.info("Loading model")
     model, data_config = get_model(REPO_ID, REVISION)
 
-
     logger.info("Downloading satellite data")
+    # ocf_data_sampler.find_contiguous_time_periods which SatelliteDataset uses internally discards
+    # any time periods which aren't <= the history_mins, so we need to download a bit more than that
+    # to ensure we get enough data. This can be removed once the new version of ocf_data_sampler
+    # is released and SatelliteDataset is updated to use it.
+    history_mins = data_config["history_mins"] + data_config["sample_freq_mins"]
     sat_path = f"{scratch_dir}/rss.zarr"
     SatelliteDownloader(
-        interval_start=t0-pd.Timedelta(minutes=data_config["history_mins"]),
+        interval_start=t0 - pd.Timedelta(minutes=history_mins),
         interval_end=t0,
-        source_path=settings.satellite_zarr_path,
+        source_path=settings.satellite_icechunk_path,
         s3_region=settings.s3_region,
         destination_path=sat_path,
     ).run()
@@ -217,8 +209,10 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
     X = get_input_tensor(dataset, t0)
 
     logger.info("Making predictions")
+    # The normaliser works on (channel, time, y, x) samples, so denormalise the single sample
+    # before putting the init-time axis back on
     y_hat = model(X).squeeze(0).cpu().numpy()
-    y_hat = channel_config.normaliser.denormalise(y_hat)
+    y_hat = channel_config.normaliser.denormalise(y_hat)[np.newaxis]
 
     logger.info("Saving predictions")
 
@@ -228,7 +222,7 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
         forecast_mins=data_config["forecast_mins"],
         sample_freq_mins=data_config["sample_freq_mins"],
         da=dataset.da,
-        model_address=f"{REPO_ID}@{REVISION}"
+        model_address=f"{REPO_ID}@{REVISION}",
     )
 
     # Save predictions to the latest path and to path with timestring
@@ -239,7 +233,6 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
 
     fs = fsspec.open(out_dir).fs
     for path in [latest_zarr_path, t0_string_zarr_path]:
-
         # Remove the path if it exists already
         if fs.exists(path):
             logger.info(f"Removing path: {path}")

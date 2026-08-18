@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -13,7 +14,7 @@ def get_sat_shell():
         ds = xr.open_zarr(store)
 
     # Remove original time dim
-    return  ds.drop_vars("time")
+    return ds.drop_vars("time")
 
 
 def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
@@ -34,12 +35,8 @@ def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
     ds.data.attrs = ds.attrs["_data_attrs"]
     del ds.attrs["_data_attrs"]
 
-
     # # This is important to avoid saving errors
     for v in list(ds.variables.keys()):
         ds[v].encoding.clear()
 
     return ds
-
-
-

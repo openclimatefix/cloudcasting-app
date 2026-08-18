@@ -26,7 +26,7 @@ dependencies = [
     "icechunk",
     "loguru",
     "numpy",
-    "ocf-data-sampler==0.5.27",
+    "ocf-data-sampler==1.0.23",
     "pandas",
     "pydantic-settings",
     "s3fs",
@@ -88,11 +88,11 @@ plugins = [
 [tool.ruff]
 line-length = 100
 indent-width = 4
-exclude = ["__init__.py"]
+# Scratch notebooks are not part of the packages and are not linted
+exclude = ["__init__.py", "*.ipynb"]
 
 [tool.ruff.lint]
 fixable = ["ALL"]
-ignore = ["ANN101", "ANN102"]
 select = [
     "F",   # pyflakes
     "E",   # pycodestyle
@@ -103,7 +103,6 @@ select = [
     "S",   # flake8 bandit
     "B",   # flake8 bugbear
     "C4",  # flake8 comprehensions
-    "COM", # flake8 commas
     "T20", # flake8 print
     "SIM", # flake8 simplify
     "ARG", # flake8 unused arguments
@@ -115,7 +114,8 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"test*" = ["D", "ANN"]
+# Tests are not documented or annotated, and `assert` is how they assert
+"tests/*" = ["D", "ANN", "S101"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -1,18 +1,18 @@
-"""Runs metric calculations on cloudcasting for a given input day and appends to zarr store
+"""Runs metric calculations on cloudcasting for a given input day and appends to zarr store.
 
 The runtime configuration is loaded from environment variables - see
 `cloudcasting_metrics.settings.AppSettings` for the full list.
 """
 
 import re
+
 import fsspec
+import icechunk
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-
 import xarray as xr
-import icechunk
 from loguru import logger
+from tqdm import tqdm
 
 from cloudcasting_metrics.settings import AppSettings
 
@@ -24,19 +24,20 @@ FORECAST_STEPS = pd.timedelta_range(start="15min", end="180min", freq="15min")
 FORECAST_FREQ = pd.Timedelta("30min")
 
 
-def open_icechunk(path: str) -> xr.Dataset:
-    """Open an icechunk store to xarray Dataset
-    
+def open_icechunk(path: str, region: str) -> xr.Dataset:
+    """Open an icechunk store to xarray Dataset.
+
     Args:
         path: The path to the local or s3 icechunk store
+        region: The s3 region the store is in. Unused for a local store
     """
-    assert path.startswith("s3://"), path
     if path.startswith("s3://"):
         bucket, _, path = path.removeprefix("s3://").partition("/")
         store = icechunk.s3_storage(
             bucket=bucket,
             prefix=path,
             from_env=True,
+            region=region,
         )
     else:
         store = icechunk.local_filesystem_storage(path=path)
@@ -47,15 +48,14 @@ def open_icechunk(path: str) -> xr.Dataset:
 
 
 def app(date: pd.Timestamp | None = None) -> None:
-    """Runs metric calculations on cloudcasting for a given input day and appends to zarr store
+    """Runs metric calculations on cloudcasting for a given input day and appends to zarr store.
 
     Args:
         date: The day for which the cloudcasting predictions will be scored.
     """
-
     settings = AppSettings()
 
-    sat_path = settings.satellite_icechunk_archive
+    sat_path = settings.satellite_icechunk_path
     prediction_dir = settings.prediction_save_directory
     metric_zarr_path = settings.metric_zarr_path
 
@@ -64,8 +64,8 @@ def app(date: pd.Timestamp | None = None) -> None:
     # Default to yesterday
     if date is None:
         date = now.floor("1D") - pd.Timedelta("1D")
-    
-    start_dt =  date.floor("1D")
+
+    start_dt = date.floor("1D")
     end_dt = start_dt + pd.Timedelta("1D")
 
     if now <= end_dt + FORECAST_STEPS.max():
@@ -74,9 +74,9 @@ def app(date: pd.Timestamp | None = None) -> None:
         )
 
     # Open the satellite data store
-    ds_sat = open_icechunk(path=sat_path)
+    ds_sat = open_icechunk(path=sat_path, region=settings.s3_region)
 
-    # Slice to only the timesteps we need for scoring
+    # Slice to only the timesteps we need for scoring
     ds_sat = ds_sat.sel(time=slice(start_dt, end_dt + FORECAST_STEPS.max()))
 
     # It is better to preload if we have the RAM space
@@ -98,7 +98,7 @@ def app(date: pd.Timestamp | None = None) -> None:
 
     for file in file_list:
         # Find the datetime of this forecast
-        match = re.search(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}', file)
+        match = re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", file)
         if match is None:
             raise Exception(f"Could not derive datetime of file {file}")
 
@@ -116,11 +116,7 @@ def app(date: pd.Timestamp | None = None) -> None:
 
         valid_times = pd.Timestamp(ds_forecast.init_time.item()) + ds_forecast.step
 
-        ds_forecast = (
-            ds_forecast
-            .assign_coords(time=valid_times)
-            .swap_dims({"step":"time"})
-        )
+        ds_forecast = ds_forecast.assign_coords(time=valid_times).swap_dims({"step": "time"})
 
         ds_sat_sel = ds_sat.sel(
             time=ds_forecast.time,
@@ -130,9 +126,7 @@ def app(date: pd.Timestamp | None = None) -> None:
         )
 
         da_mae = np.abs(
-            (ds_sat_sel.data - ds_forecast.sat_pred)
-            .swap_dims({"time":"step"})
-            .drop_vars("time")
+            (ds_sat_sel.data - ds_forecast.sat_pred).swap_dims({"time": "step"}).drop_vars("time")
         )
 
         # Create reductions of the full MAE matrix
@@ -158,13 +152,7 @@ def app(date: pd.Timestamp | None = None) -> None:
 
     # Chunk the data ready for saving
     ds_all_maes = ds_all_maes.chunk(
-        {
-            "x_geostationary": -1, 
-            "y_geostationary": -1, 
-            "step": -1, 
-            "variable": -1, 
-            "init_time": 48
-            }
+        {"x_geostationary": -1, "y_geostationary": -1, "step": -1, "variable": -1, "init_time": 48}
     )
 
     # If it exists, open the archive of MAE values and check the coordinates against them
@@ -174,11 +162,11 @@ def app(date: pd.Timestamp | None = None) -> None:
 
         if np.isin(ds_all_maes.init_time, ds_maes_archive.init_time).any():
             raise Exception("init-times in new MAEs already exist in MAE store")
-        
+
         for coord in ["variable", "step", "x_geostationary", "y_geostationary"]:
             if not ds_maes_archive[coord].identical(ds_all_maes[coord]):
                 raise Exception("Found differences in coord: {coord}")
-                
+
         ds_all_maes.to_zarr(metric_zarr_path, mode="a-", append_dim="init_time")
 
     else:

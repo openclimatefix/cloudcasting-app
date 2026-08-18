@@ -1,15 +1,12 @@
 """Functions to download and process satellite data."""
 
-import logging
 import shutil
 
 import icechunk
 import numpy as np
 import pandas as pd
 import xarray as xr
-
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # The maximum gap size which will be filled via interpolation
 MAXIMUM_INTERPOLATION_GAP = pd.Timedelta("15min")
@@ -156,7 +153,6 @@ def satellite_inputs_available(
     Returns:
         bool: Whether the satellite data satisfies that specified in the config
     """
-
     # In case no satellite is available
     if sat_datetimes is None:
         return False
@@ -172,10 +168,10 @@ def satellite_inputs_available(
         if len(missing_time_steps) > 0:
             logger.info(
                 f"Some satellite timesteps in interval {interval_start}-{interval_end} missing:"
-                f"\n{missing_time_steps}")
+                f"\n{missing_time_steps}"
+            )
 
         return available
-
 
 
 class SatelliteDownloader:
@@ -230,16 +226,16 @@ class SatelliteDownloader:
 
     def run(self) -> None:
         """Download, process, and save the satellite data."""
-
-
         ds = open_satellite_data(
             s3_icechunk_path=self.source_path,
             region=self.s3_region,
         )
 
+        if ds is None:
+            raise ValueError(f"Could not open the satellite data at {self.source_path}")
+
         logger.info(
-            f"Satellite data contains times:"
-            f"\n...\n{ds.time.values[-24:]}",
+            f"Satellite data contains times:\n...\n{ds.time.values[-24:]}",
         )
 
         # We slice the data to the required time window for the model, plus a buffer to allow for
@@ -248,19 +244,20 @@ class SatelliteDownloader:
         end_dt = self.interval_end + MAXIMUM_INTERPOLATION_GAP
 
         ds = (
-            ds
-            .sortby("time")
+            ds.sortby("time")
             .drop_duplicates("time", keep="last")
-            .sel(time=slice(start_dt, end_dt))
-            # Filter out unused variables
-            [["data"]]
+            .sel(time=slice(start_dt, end_dt))[
+                # Filter out unused variables
+                ["data"]
+            ]
             # Load into memory for processing
             .load()
         )
 
         if len(ds.time) == 0:
-            logger.warning("No satellite data available in recent window.")
-            return
+            raise ValueError(
+                f"No satellite data available between {start_dt} and {end_dt}.",
+            )
 
         ds = self.process(ds)
 
@@ -272,5 +269,3 @@ class SatelliteDownloader:
             self.resave(ds)
         else:
             raise ValueError("Satellite data is not available for the required time window.")
-
-            
