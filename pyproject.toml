@@ -28,6 +28,7 @@ dependencies = [
     "numpy",
     "ocf-data-sampler==0.5.27",
     "pandas",
+    "pydantic-settings",
     "s3fs",
     "safetensors",
     "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@main",

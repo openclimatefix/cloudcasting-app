@@ -1,15 +1,9 @@
 """Runs metric calculations on cloudcasting for a given input day and appends to zarr store
 
-This app expects these environmental variables to be available:
- - SATELLITE_ICECHUNK_ARCHIVE (str): Path at which ground truth satellite data can be found
- - PREDICTION_SAVE_DIRECTORY (str): The directory where the cloudcasting forecasts are saved
- - METRIC_ZARR_PATH (str): The path where the metric values will be saved
-
- If the SATELLITE_ICECHUNK_ARCHIVE is an s3 path, then the environment variables 
- AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION must also be set.
+The runtime configuration is loaded from environment variables - see
+`cloudcasting_metrics.settings.AppSettings` for the full list.
 """
 
-import os
 import re
 import fsspec
 import numpy as np
@@ -19,6 +13,8 @@ from tqdm import tqdm
 import xarray as xr
 import icechunk
 from loguru import logger
+
+from cloudcasting_metrics.settings import AppSettings
 
 # ---------------------------------------------------------------------------
 
@@ -57,10 +53,11 @@ def app(date: pd.Timestamp | None = None) -> None:
         date: The day for which the cloudcasting predictions will be scored.
     """
 
-    # Unpack environmental variables
-    sat_path = os.environ["SATELLITE_ICECHUNK_ARCHIVE"]
-    prediction_dir = os.environ["PREDICTION_SAVE_DIRECTORY"]
-    metric_zarr_path = os.environ["METRIC_ZARR_PATH"]
+    settings = AppSettings()
+
+    sat_path = settings.satellite_icechunk_archive
+    prediction_dir = settings.prediction_save_directory
+    metric_zarr_path = settings.metric_zarr_path
 
     now = pd.Timestamp.now(tz="UTC").replace(tzinfo=None)
 
