@@ -14,21 +14,23 @@ MAXIMUM_INTERPOLATION_GAP = pd.Timedelta("15min")
 IMAGE_FREQUENCY = pd.Timedelta("5min")
 
 
-def open_satellite_data(s3_icechunk_path: str, region: str) -> xr.Dataset | None:
-    """Open the satellite data from the given s3 icechunk path.
+def open_satellite_data(icechunk_path: str, region: str) -> xr.Dataset | None:
+    """Open the satellite data from the given icechunk path.
 
     Args:
-        s3_icechunk_path: The s3 path to the icechunk containing the satellite
-        region: The s3 region where the icechunk is stored
+        icechunk_path: The local or s3 path to the icechunk store holding the satellite data
+        region: The s3 region the store is in. Unused for a local store
     """
-    bucket, _, path = s3_icechunk_path.removeprefix("s3://").partition("/")
-
-    store = icechunk.s3_storage(
-        bucket=bucket,
-        prefix=path,
-        from_env=True,
-        region=region,
-    )
+    if icechunk_path.startswith("s3://"):
+        bucket, _, prefix = icechunk_path.removeprefix("s3://").partition("/")
+        store = icechunk.s3_storage(
+            bucket=bucket,
+            prefix=prefix,
+            from_env=True,
+            region=region,
+        )
+    else:
+        store = icechunk.local_filesystem_storage(path=icechunk_path)
 
     try:
         repo = icechunk.Repository.open(store)
@@ -227,7 +229,7 @@ class SatelliteDownloader:
     def run(self) -> None:
         """Download, process, and save the satellite data."""
         ds = open_satellite_data(
-            s3_icechunk_path=self.source_path,
+            icechunk_path=self.source_path,
             region=self.s3_region,
         )
 

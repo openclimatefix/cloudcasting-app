@@ -114,7 +114,7 @@ def app(date: pd.Timestamp | None = None) -> None:
     for file in tqdm(forecasts_to_score):
         ds_forecast = xr.open_zarr(fs.get_mapper(file)).compute()
 
-        valid_times = pd.Timestamp(ds_forecast.init_time.item()) + ds_forecast.step
+        valid_times = pd.Timestamp(ds_forecast.init_time_utc.item()) + ds_forecast.step
 
         ds_forecast = ds_forecast.assign_coords(time=valid_times).swap_dims({"step": "time"})
 
@@ -122,7 +122,7 @@ def app(date: pd.Timestamp | None = None) -> None:
             time=ds_forecast.time,
             x_geostationary=ds_forecast.x_geostationary,
             y_geostationary=ds_forecast.y_geostationary,
-            variable=ds_forecast.variable,
+            channel=ds_forecast.channel,
         )
 
         da_mae = np.abs(
@@ -130,14 +130,14 @@ def app(date: pd.Timestamp | None = None) -> None:
         )
 
         # Create reductions of the full MAE matrix
-        da_mae_step = da_mae.mean(dim=("x_geostationary", "y_geostationary", "variable"))
-        da_mae_variable = da_mae.mean(dim=("x_geostationary", "y_geostationary", "step"))
-        da_mae_spatial = da_mae.mean(dim=("step", "variable"))
+        da_mae_step = da_mae.mean(dim=("x_geostationary", "y_geostationary", "channel"))
+        da_mae_channel = da_mae.mean(dim=("x_geostationary", "y_geostationary", "step"))
+        da_mae_spatial = da_mae.mean(dim=("step", "channel"))
 
         ds_mae_reductions = xr.Dataset(
             {
                 "mae_step": da_mae_step,
-                "mae_variable": da_mae_variable,
+                "mae_channel": da_mae_channel,
                 "mae_spatial": da_mae_spatial,
             }
         )
@@ -146,13 +146,19 @@ def app(date: pd.Timestamp | None = None) -> None:
 
     # Concat all the MAE scores and in-fill missing init times with NaNs
     # - Filling with NaNs makes the chunking easier
-    ds_all_maes = xr.concat(ds_mae_list, dim="init_time")
+    ds_all_maes = xr.concat(ds_mae_list, dim="init_time_utc")
     expected_init_times = pd.date_range(start_dt, end_dt, freq=FORECAST_FREQ, inclusive="left")
-    ds_all_maes = ds_all_maes.reindex(init_time=expected_init_times, method=None)
+    ds_all_maes = ds_all_maes.reindex(init_time_utc=expected_init_times, method=None)
 
     # Chunk the data ready for saving
     ds_all_maes = ds_all_maes.chunk(
-        {"x_geostationary": -1, "y_geostationary": -1, "step": -1, "variable": -1, "init_time": 48}
+        {
+            "x_geostationary": -1,
+            "y_geostationary": -1,
+            "step": -1,
+            "channel": -1,
+            "init_time_utc": 48,
+        }
     )
 
     # If it exists, open the archive of MAE values and check the coordinates against them
@@ -160,14 +166,14 @@ def app(date: pd.Timestamp | None = None) -> None:
     if fs.exists(stripped):
         ds_maes_archive = xr.open_zarr(metric_zarr_path)
 
-        if np.isin(ds_all_maes.init_time, ds_maes_archive.init_time).any():
+        if np.isin(ds_all_maes.init_time_utc, ds_maes_archive.init_time_utc).any():
             raise Exception("init-times in new MAEs already exist in MAE store")
 
-        for coord in ["variable", "step", "x_geostationary", "y_geostationary"]:
+        for coord in ["channel", "step", "x_geostationary", "y_geostationary"]:
             if not ds_maes_archive[coord].identical(ds_all_maes[coord]):
                 raise Exception("Found differences in coord: {coord}")
 
-        ds_all_maes.to_zarr(metric_zarr_path, mode="a-", append_dim="init_time")
+        ds_all_maes.to_zarr(metric_zarr_path, mode="a-", append_dim="init_time_utc")
 
     else:
         ds_all_maes.to_zarr(metric_zarr_path, mode="w")
