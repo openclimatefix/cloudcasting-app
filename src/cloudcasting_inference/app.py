@@ -18,7 +18,8 @@ from huggingface_hub import snapshot_download
 from safetensors.torch import load_model
 from loguru import logger
 
-from cloudcasting_inference.data import SatelliteDownloader, sat_path, get_input_data
+from cloudcasting_inference.data import SatelliteDownloader
+from sat_pred.dataset import SatelliteDataset
 
 # Get package version
 try:
@@ -33,40 +34,25 @@ except PackageNotFoundError:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Model revision on huggingface
-REPO_ID = "openclimatefix/cloudcasting_uk"
-REVISION = "47643e89000e64e0150f7359ccc0cb6524948712"
+REPO_ID = "openclimatefix-models/cloudcasting_uk"
+REVISION = "06e7ee93366a0d1dbb52c937840319460b0b51db"
 
 
-def app(t0=None):
-    """Inference function for production
-
-    Args:
-        t0 (datetime): Datetime at which forecast is made
-    """
-    logger.info(f"Using `cloudcasting-app` version: {__version__}", version=__version__)
-
-    # ---------------------------------------------------------------------------
-    # 0. If inference datetime is None, round down to last 30 minutes
+def sanitize_t0(t0: pd.Timestamp | None) -> pd.Timestamp:
+    """Sanitize the input t0 to be a pandas Timestamp and round down to the nearest 30 minutes."""
     if t0 is None:
-        t0 = pd.Timestamp.now(tz="UTC").replace(tzinfo=None).floor("30min")
+        t0 = pd.Timestamp.now(tz="UTC").replace(tzinfo=None)
     else:
-        t0 = pd.to_datetime(t0).floor("30min")
+        t0 = pd.to_datetime(t0)
+    return t0.floor("30min")
 
-    logger.info(f"Making forecast for init time: {t0}")
 
-    # ---------------------------------------------------------------------------
-    # 1. Prepare the input data
-    logger.info("Downloading satellite data")
-    satellite_downloader = SatelliteDownloader()
-    satellite_downloader.prepare_satellite_data(t0)
-
-    # ---------------------------------------------------------------------------
-    # 2. Load model
-    logger.info("Loading model")
+def get_model(repo_id: str, revision: str) -> torch.nn.Module:
+    """Download the model from huggingface and load it into memory"""
 
     hf_download_dir = snapshot_download(
-        repo_id=REPO_ID,
-        revision=REVISION,
+        repo_id=repo_id,
+        revision=revision,
     )
 
     with open(f"{hf_download_dir}/model_config.yaml", encoding="utf-8") as f:
@@ -82,24 +68,60 @@ def app(t0=None):
 
     model.eval()
 
-    # ---------------------------------------------------------------------------
-    # 3. Get inference inputs
+    return model
+
+
+def get_input_data(t0: pd.Timestamp, history_mins: int) -> torch.Tensor:
+    """Get the input data for the model
+
+    Returns:
+        torch.Tensor: The input data for the model
+    """
+    dataset = SatelliteDataset(
+            zarr_path=os.environ["PREDICTION_SAVE_DIRECTORY"],
+            time_periods=[[None, None]],
+            history_mins=history_mins,
+            forecast_mins=0,
+            sample_freq_mins=15,
+            channels=None, # ChannelConfigInput
+            preshuffle=False,
+        )
+
+    X, _ = dataset._get_datetime(t0)
+
+    return X.unsqueeze(0).to(device)
+
+@torch.no_grad()
+def app(t0=None):
+    """Inference function for production
+
+    Args:
+        t0 (datetime): Datetime at which forecast is made
+    """
+    logger.info(f"Using `cloudcasting-app` version: {__version__}", version=__version__)
+
+    t0 = sanitize_t0(t0)
+    logger.info(f"Making forecast for init time: {t0}")
+
+
+    logger.info("Downloading satellite data")
+    SatelliteDownloader(
+        interval_start=t0-pd.Timedelta(minutes=165),
+        interval_end=t0,
+        source_path=os.environ["SATELLITE_ZARR_PATH"],
+        s3_region=os.environ["S3_REGION"],
+        destination_path=os.environ["PREDICTION_SAVE_DIRECTORY"],
+    ).run()
+
+    logger.info("Loading model")
+    model = get_model(REPO_ID, REVISION)
+
     logger.info("Preparing inputs")
+    X = get_input_data(t0, history_mins=model.history_mins)
 
-    # Get inputs
-    ds = xr.open_zarr(sat_path).compute()
 
-    X = get_input_data(ds, t0)
-
-    # Convert to tensor, expand into batch dimension, and move to device
-    X = X[None, ...].to(device)
-
-    # ---------------------------------------------------------------------------
-    # 4. Make predictions
     logger.info("Making predictions")
-
-    with torch.no_grad():
-        y_hat = model(X).cpu().numpy()
+    y_hat = model(X).squeeze(0).cpu().numpy()
 
     # ---------------------------------------------------------------------------
     # 5. Save predictions

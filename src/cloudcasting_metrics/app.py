@@ -34,7 +34,7 @@ def open_icechunk(path: str) -> xr.Dataset:
     Args:
         path: The path to the local or s3 icechunk store
     """
-
+    assert path.startswith("s3://"), path
     if path.startswith("s3://"):
         bucket, _, path = path.removeprefix("s3://").partition("/")
         store = icechunk.s3_storage(
