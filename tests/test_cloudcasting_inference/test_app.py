@@ -43,3 +43,6 @@ def test_app(sat_icechunk_path, tmp_path, init_time):
 
     # Make sure all of the predictions are finite
     assert np.isfinite(ds_y_hat.sat_pred).all()
+
+    # The predictions are stored as float16
+    assert ds_y_hat.sat_pred.dtype == np.float16

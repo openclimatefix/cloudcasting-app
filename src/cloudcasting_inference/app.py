@@ -212,7 +212,8 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
     # The normaliser works on (channel, time, y, x) samples, so denormalise the single sample
     # before putting the init-time axis back on
     y_hat = model(X).squeeze(0).cpu().numpy()
-    y_hat = channel_config.normaliser.denormalise(y_hat)[np.newaxis]
+    # Saved as float16, matching the backtest store these forecasts are scored against
+    y_hat = channel_config.normaliser.denormalise(y_hat)[np.newaxis].astype(np.float16)
 
     logger.info("Saving predictions")
 
