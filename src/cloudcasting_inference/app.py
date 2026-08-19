@@ -11,18 +11,16 @@ from collections.abc import Iterator
 from importlib.metadata import version
 
 import fsspec
-import hydra
 import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
-import yaml
-from huggingface_hub import snapshot_download
 from loguru import logger
 from numpy.typing import NDArray
-from safetensors.torch import load_model
 from sat_pred.channels import ChannelConfig, parse_channel_config
 from sat_pred.dataset import SatelliteDataset
+from sat_pred.load_model import get_model_from_huggingface
+from sat_pred.predictions import PREDICTION_DIMS, PREDICTION_VAR_NAME, prediction_coords
 
 from cloudcasting_inference.data import SatelliteDownloader
 from cloudcasting_inference.settings import AppSettings
@@ -45,38 +43,6 @@ def sanitize_t0(t0: pd.Timestamp | None) -> pd.Timestamp:
     return t0.floor("30min")
 
 
-def get_model(repo_id: str, revision: str) -> tuple[torch.nn.Module, dict]:
-    """Download the model from huggingface and load it into memory.
-
-    Returns:
-        The model, and the config of the data it was trained on. The data config gives the
-        history, forecast horizon, time resolution and channels the model expects, so the inputs
-        built here always match what the model was trained to read.
-    """
-    hf_download_dir = snapshot_download(
-        repo_id=repo_id,
-        revision=revision,
-    )
-
-    with open(f"{hf_download_dir}/model_config.yaml", encoding="utf-8") as f:
-        model = hydra.utils.instantiate(yaml.safe_load(f))
-
-    with open(f"{hf_download_dir}/data_config.yaml", encoding="utf-8") as f:
-        data_config = yaml.safe_load(f)
-
-    model = model.to(device)
-
-    load_model(
-        model,
-        filename=f"{hf_download_dir}/model.safetensors",
-        strict=True,
-    )
-
-    model.eval()
-
-    return model, data_config
-
-
 def get_input_tensor(dataset: SatelliteDataset, t0: pd.Timestamp) -> torch.Tensor:
     """Get the input data for the model.
 
@@ -87,7 +53,9 @@ def get_input_tensor(dataset: SatelliteDataset, t0: pd.Timestamp) -> torch.Tenso
     Returns:
         torch.Tensor: The input data for the model, with a leading batch dimension of 1
     """
-    X, _ = dataset._get_datetime(t0)
+    # Indexing by t0 rather than reaching for the private method so that an init-time the archive
+    # cannot cover raises instead of quietly returning a short history
+    X, _ = dataset[t0]
 
     return torch.from_numpy(X).unsqueeze(0).to(device)
 
@@ -103,23 +71,16 @@ def prediction_to_dataset_like(
     """Convert the model output to a DataArray with the same coordinates as the input."""
     da_y_hat = xr.DataArray(
         y_hat,
-        dims=["init_time_utc", "channel", "step", "y_geostationary", "x_geostationary"],
+        dims=PREDICTION_DIMS,
         coords={
             "init_time_utc": [t0],
-            "channel": da.channel,
-            "step": pd.timedelta_range(
-                start=f"{sample_freq_mins}min",
-                end=f"{forecast_mins}min",
-                freq=f"{sample_freq_mins}min",
-            ),
-            "y_geostationary": da.y_geostationary,
-            "x_geostationary": da.x_geostationary,
+            **prediction_coords(da, forecast_mins, sample_freq_mins),
         },
     )
 
     attrs_dict = dict(da.attrs)
 
-    ds_y_hat = da_y_hat.to_dataset(name="sat_pred")
+    ds_y_hat = da_y_hat.to_dataset(name=PREDICTION_VAR_NAME)
     ds_y_hat.attrs.update(attrs_dict)
     ds_y_hat.attrs["model_address"] = model_address
     return ds_y_hat
@@ -178,7 +139,9 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
         scratch_dir: Directory for downloaded inputs and temporary files
     """
     logger.info("Loading model")
-    model, data_config = get_model(REPO_ID, REVISION)
+    # The loader returns the model in whatever mode hydra instantiated it in
+    model, data_config = get_model_from_huggingface(REPO_ID, REVISION)
+    model = model.to(device).eval()
 
     logger.info("Downloading satellite data")
     # ocf_data_sampler.find_contiguous_time_periods which SatelliteDataset uses internally discards

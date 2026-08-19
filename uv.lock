@@ -247,8 +247,6 @@ name = "cloudcasting-app"
 source = { editable = "." }
 dependencies = [
     { name = "fsspec" },
-    { name = "huggingface-hub" },
-    { name = "hydra-core" },
     { name = "icechunk" },
     { name = "loguru" },
     { name = "numpy" },
@@ -256,7 +254,6 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic-settings" },
     { name = "s3fs" },
-    { name = "safetensors" },
     { name = "sat-pred" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
@@ -275,8 +272,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fsspec", specifier = "==2025.7.0" },
-    { name = "huggingface-hub" },
-    { name = "hydra-core" },
     { name = "icechunk" },
     { name = "loguru" },
     { name = "numpy" },
@@ -284,8 +279,7 @@ requires-dist = [
     { name = "pandas" },
     { name = "pydantic-settings" },
     { name = "s3fs" },
-    { name = "safetensors" },
-    { name = "sat-pred", git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.2" },
+    { name = "sat-pred", git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.3" },
     { name = "torch", index = "https://download.pytorch.org/whl/cpu" },
     { name = "xarray" },
     { name = "zarr" },
@@ -1918,8 +1912,8 @@ wheels = [
 
 [[package]]
 name = "sat-pred"
-version = "0.0.2.post0+git.60970070.dirty"
-source = { git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.2#60970070ac4c62c875a7f796acc653f60db3806a" }
+version = "0.0.3.post0+git.098113d3.dirty"
+source = { git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.3#098113d3d43a87a6e413eaec579814ae476608ca" }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "hydra-core" },

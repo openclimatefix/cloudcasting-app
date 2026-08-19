@@ -21,8 +21,6 @@ classifiers = [
 ]
 dependencies = [
     "fsspec==2025.7.0",
-    "huggingface-hub",
-    "hydra-core",
     "icechunk",
     "loguru",
     "numpy",
@@ -30,10 +28,9 @@ dependencies = [
     "pandas",
     "pydantic-settings",
     "s3fs",
-    "safetensors",
     # Pinned to a tag rather than a branch, so advancing it is a deliberate edit rather than
     # something an incidental re-lock does silently
-    "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@v0.0.2",
+    "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@v0.0.3",
     # pytorch is deliberately unconstrained: we inherit the version according to the version pin in
     # sat_pred. Inheriting the pin means models are always run with the same version of torch they
     # we trained with. All this app decides is that it wants the CPU build, via `tool.uv.sources`
