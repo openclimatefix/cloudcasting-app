@@ -1,212 +1,273 @@
-import logging
-import shutil
-import os
+"""Functions to download and process satellite data."""
 
-import fsspec
+import shutil
+
+import icechunk
 import numpy as np
 import pandas as pd
-import zarr
-import torch
 import xarray as xr
-from ocf_data_sampler.select.geospatial import lon_lat_to_geostationary_area_coords
+from loguru import logger
+
+# The maximum gap size which will be filled via interpolation
+MAXIMUM_INTERPOLATION_GAP = pd.Timedelta("15min")
+# The assumed frequency of satellite image inputs required by all models
+IMAGE_FREQUENCY = pd.Timedelta("5min")
 
 
-xr.set_options(keep_attrs=True)
-
-logger = logging.getLogger(__name__)
-
-sat_5_path = "sat_5_min.zarr.zip"
-sat_15_path = "sat_15_min.zarr.zip"
-sat_path = "sat.zarr"
-
-lon_min = -16
-lon_max = 10
-lat_min = 45
-lat_max = 70
-
-x_size = 614
-y_size = 372
-
-channel_order = [
-    "IR_016",
-    "IR_039",
-    "IR_087",
-    "IR_097",
-    "IR_108",
-    "IR_120",
-    "IR_134",
-    "VIS006",
-    "VIS008",
-    "WV_062",
-    "WV_073",
-]
-
-def get_satellite_timestamps(sat_zarr_path: str) -> pd.DatetimeIndex:
-    """Get the datetimes of the satellite data
+def open_satellite_data(icechunk_path: str, region: str) -> xr.Dataset | None:
+    """Open the satellite data from the given icechunk path.
 
     Args:
-        sat_zarr_path: The path to the satellite zarr
+        icechunk_path: The local or s3 path to the icechunk store holding the satellite data
+        region: The s3 region the store is in. Unused for a local store
+    """
+    if icechunk_path.startswith("s3://"):
+        bucket, _, prefix = icechunk_path.removeprefix("s3://").partition("/")
+        store = icechunk.s3_storage(
+            bucket=bucket,
+            prefix=prefix,
+            from_env=True,
+            region=region,
+        )
+    else:
+        store = icechunk.local_filesystem_storage(path=icechunk_path)
+
+    try:
+        repo = icechunk.Repository.open(store)
+        session = repo.readonly_session("main")
+        ds = xr.open_zarr(session.store)
+    except icechunk.IcechunkError as e:
+        logger.error(f"Error opening icechunk repository: {e}")
+        ds = None
+
+    return ds
+
+
+def fill_1d_bool_gaps(x: np.ndarray, max_gap: int) -> np.ndarray:
+    """Fill consecutive False elements if their number is less than the gap_size.
+
+    Args:
+        x: A 1-dimensional boolean array
+        max_gap: integer of the maximum gap size which will be filled with True
 
     Returns:
-        pd.DatetimeIndex: All available satellite timestamps
+        A 1-dimensional boolean array
+
+    Examples:
+        >>> x = np.array([0, 1, 0, 0, 1, 0, 1, 0])
+        >>> fill_1d_bool_gaps(x, max_gap=2).astype(int)
+        array([0, 1, 1, 1, 1, 1, 1, 0])
+
+        >>> x = np.array([1, 0, 0, 0, 1, 0, 1, 0])
+        >>> fill_1d_bool_gaps(x, max_gap=2).astype(int)
+        array([1, 0, 0, 0, 1, 1, 1, 0])
     """
-    with zarr.storage.ZipStore(sat_zarr_path) as store:
-        ds = xr.open_zarr(store)
-    return pd.to_datetime(ds.time.values)
+    should_fill = np.zeros(len(x), dtype=bool)
+
+    i_start = None
+
+    last_b = False
+    for i, b in enumerate(x):
+        if last_b and not b:
+            i_start = i
+        elif b and not last_b and i_start is not None:
+            if i - i_start <= max_gap:
+                should_fill[i_start:i] = True
+            i_start = None
+        last_b = b
+
+    return np.logical_or(should_fill, x)
 
 
-def crop_input_area(ds: xr.Dataset) -> xr.Dataset:
+def interpolate_missing_satellite_timestamps(ds: xr.Dataset, max_gap: pd.Timedelta) -> xr.Dataset:
+    """Linearly interpolate missing satellite timestamps.
 
-    x_min, y_min = lon_lat_to_geostationary_area_coords(lon_min, lat_min, ds.data.attrs["area"])
+    The max gap is inclusive of timestamps either side. E.g. if max gap is 15 minutes and the
+    satellite includes timestamps 12:00 and 12:15, then 12:05 and 12:10 will be filled. If the max
+    gap was 10 minutes, then none of the timestamps would be filled. A max gap of 5 minutes will do
+    nothing since the normal spacing is already 5 minutes.
 
-    # x-axis is expected to be in decreasing order
-    # y-axis is expected to be in ascending order
-    assert ds.x_geostationary.values[0] > ds.x_geostationary.values[1]
-    assert ds.y_geostationary.values[0] < ds.y_geostationary.values[1]
-    
-    ds = ds.isel(x_geostationary=slice(None, None, -1))
+    Args:
+        ds: The satellite data
+        max_gap: The maximum gap size which will be filled via interpolation.
+    """
+    # If any of these times are missing, we will try to interpolate them
+    dense_times = pd.date_range(ds.time.min().item(), ds.time.max().item(), freq=IMAGE_FREQUENCY)
 
-    ds = (
-        ds
-        .sel(x_geostationary=slice(x_min, None), y_geostationary=slice(y_min, None))
-        .isel(x_geostationary=slice(0, x_size), y_geostationary=slice(0, y_size))
-    )
+    # Create mask array of which timestamps are available
+    timestamp_available = np.isin(dense_times, ds.time)
 
-    assert len(ds.x_geostationary)==x_size
-    assert len(ds.y_geostationary)==y_size
+    # If all the requested times are present we avoid running interpolation
+    if timestamp_available.all():
+        logger.info("No gaps in the required satellite sequence - no interpolation run")
+        return ds
 
-    return ds.isel(x_geostationary=slice(None, None, -1))  # flip back
+    # If less than 2 of the buffer requested times are present we cannot infill
+    elif timestamp_available.sum() < 2:
+        logger.warning("Cannot run interpolate infilling with less than 2 time steps available")
+        return ds
+
+    else:
+        logger.info("Some requested times are missing - running interpolation")
+
+        # Run the interpolation to all 5-minute timestamps between the first and last
+        ds_interp = ds.interp(time=dense_times, method="linear", assume_sorted=True)
+
+        # Find the timestamps which are within max gap size
+        max_gap_steps = int(max_gap / IMAGE_FREQUENCY) - 1
+        valid_fill_times = fill_1d_bool_gaps(timestamp_available, max_gap_steps)
+
+        # Mask the timestamps outside the max gap size
+        valid_fill_times_xr = xr.zeros_like(ds_interp.time, dtype=bool)
+        valid_fill_times_xr.values[:] = valid_fill_times
+        ds_sat_filtered = ds_interp.where(valid_fill_times_xr, drop=True)
+
+        time_was_filled = np.logical_and(valid_fill_times_xr, ~timestamp_available)
+
+        if time_was_filled.any():
+            infilled_times = time_was_filled.where(time_was_filled, drop=True)
+            logger.info(
+                f"The following times were filled by interpolation:\n{infilled_times.time.values}",
+            )
+
+        if not valid_fill_times_xr.all():
+            not_infilled_times = valid_fill_times_xr.where(~valid_fill_times_xr, drop=True)
+            logger.info(
+                "After interpolation the following times are still missing:\n"
+                f"{not_infilled_times.time.values}",
+            )
+
+        return ds_sat_filtered
 
 
-def get_input_data(ds: xr.Dataset, t0: pd.Timestamp) -> torch.Tensor:
-    """Get the input data required to run the model for init-time t0"""
+def satellite_inputs_available(
+    interval_start: pd.Timestamp,
+    interval_end: pd.Timestamp,
+    sat_datetimes: pd.DatetimeIndex | None,
+) -> bool:
+    """Checks whether the model can be run given the current satellite delay.
 
-    # Slice the data
-    required_timestamps = pd.date_range(t0-pd.Timedelta("165min"), t0, freq="15min")
-    ds = ds.reindex(time=required_timestamps)
+    Args:
+        interval_start: The init-time of the forecast
+        interval_end: The end-time of the forecast
+        sat_datetimes: The available satellite timestamps
 
-    # Convert to arrays
-    X = ds.data.values.astype(np.float32)
+    Returns:
+        bool: Whether the satellite data satisfies that specified in the config
+    """
+    # In case no satellite is available
+    if sat_datetimes is None:
+        return False
 
-    # Convert NaNs to -1
-    X = np.nan_to_num(X, nan=-1)
+    else:
+        expected_datetimes = pd.date_range(interval_start, interval_end, freq=IMAGE_FREQUENCY)
 
-    return torch.Tensor(X)
+        # Check if any of the expected datetimes are missing
+        missing_time_steps = np.setdiff1d(expected_datetimes, sat_datetimes, assume_unique=True)
+
+        available = len(missing_time_steps) == 0
+
+        if len(missing_time_steps) > 0:
+            logger.info(
+                f"Some satellite timesteps in interval {interval_start}-{interval_end} missing:"
+                f"\n{missing_time_steps}"
+            )
+
+        return available
 
 
 class SatelliteDownloader:
+    """Class to download and process satellite data."""
 
-    def __init__(self):
-        self.use_5_minute = None
+    def __init__(
+        self,
+        interval_start: pd.Timestamp,
+        interval_end: pd.Timestamp,
+        source_path: str,
+        s3_region: str,
+        destination_path: str,
+    ) -> None:
+        """Class to download and process satellite data."""
+        self.interval_start = interval_start
+        self.interval_end = interval_end
+        self.source_path = source_path
+        self.s3_region = s3_region
+        self.destination_path = destination_path
 
-    def prepare_satellite_data(self, t0: pd.Timestamp) -> None:
+    def process(self, ds: xr.Dataset) -> xr.Dataset:
+        """Apply all processing steps to the satellite data in order to match the training data.
 
-        # Download the 5 and/or 15 minutely satellite data
-        self.download_all_sat_data()
+        Args:
+            ds: The satellite data
 
-        # Select between the 5/15 minute satellite data sources
-        ds = self.combine_5_and_15_sat_data()
-
-        # Check the required expected timestamps are available
-        self.check_required_timestamps_available(ds, t0)
-
-        # Crop the input area to expected
-        ds = crop_input_area(ds)
-
-        # Reorder channels
-        ds = ds.sel(variable=channel_order)
-
-        # Reshape to (channel, time, height, width)
-        ds = ds.transpose("variable", "time", "y_geostationary", "x_geostationary")
-
-        # Resave
-        ds.to_zarr(sat_path)
-
-    def download_all_sat_data(self) -> None:
-        """Download the sat data"""
-        # Clean out old files
-        logger.info("Cleaning out old satellite data")
-        for loc in [sat_path, sat_5_path, sat_15_path]:
-            if os.path.exists(loc):
-                shutil.rmtree(loc)
-
-        sat_5_dl_path = os.getenv("SATELLITE_ZARR_PATH")
-        sat_15_dl_path = os.getenv("SATELLITE_15_ZARR_PATH")
-
-        for remote_path, local_path, label in [
-            (sat_5_dl_path, sat_5_path, "5-min"), 
-            (sat_15_dl_path, sat_15_path, "15-min"),
-        ]:  
-            if remote_path is not None:
-                fs, _ = fsspec.core.url_to_fs(remote_path)
-                if fs.exists(remote_path):
-                    logger.info(f"Downloading {label} satellite data")
-                    fs.get(remote_path, local_path)
-                else:
-                    logger.info(f"No {label} data available to download")
-
-    def combine_5_and_15_sat_data(self) -> xr.Dataset:
-        """Select and/or combine the 5 and 15-minutely satellite data"""
-        # Check which satellite data exists
-        exists_5_minute = os.path.exists(sat_5_path)
-        exists_15_minute = os.path.exists(sat_15_path)
-
-        if not (exists_5_minute or exists_15_minute):
-            raise FileNotFoundError("Neither 5- nor 15-minutely data was found.")
-
-        # Find the delay in the 5- and 15-minutely data
-        if exists_5_minute:
-            datetimes_5min = get_satellite_timestamps(sat_5_path)
-            logger.info(
-                f"Latest 5-minute timestamp is {datetimes_5min.max()}. "
-                f"All the datetimes are: \n{datetimes_5min}",
-            )
-
-        if exists_15_minute:
-            datetimes_15min = get_satellite_timestamps(sat_15_path)
-            logger.info(
-                f"Latest 5-minute timestamp is {datetimes_15min.max()}. "
-                f"All the datetimes are: \n{datetimes_15min}",
-            )
-
-        # If both 5- and 15-minute data exists, use the most recent
-        if exists_5_minute and exists_15_minute:
-            use_5_minute = datetimes_5min.max() > datetimes_15min.max()
-        else:
-            # If only one exists, use that
-            use_5_minute = exists_5_minute
-
-        # Store the choice in satellite data
-        self.use_5_minute = use_5_minute
-
-        # Move the selected data to the expected path
-        if use_5_minute:
-            logger.info("Using 5-minutely data.")
-            selected_path = sat_5_path
-        else:
-            logger.info("Using 15-minutely data.")
-            selected_path = sat_15_path
-
-        # Open and return the satellite data
-        with zarr.storage.ZipStore(selected_path) as store:
-            ds = xr.open_zarr(store).compute()
+        Returns:
+            xr.Dataset: The processed satellite data
+        """
+        # Interpolate missing satellite timestamps
+        ds = interpolate_missing_satellite_timestamps(ds, max_gap=MAXIMUM_INTERPOLATION_GAP)
 
         return ds
 
-    @staticmethod
-    def check_required_timestamps_available(ds: xr.Dataset, t0: pd.Timestamp) -> None:
-        available_timestamps =  pd.to_datetime(ds.time.values)
+    def resave(self, ds: xr.Dataset) -> None:
+        """Resave the satellite data to the destination path."""
+        # Overwrite the old data
+        shutil.rmtree(self.destination_path, ignore_errors=True)
 
-        # Need 12 timestamps of 15 minutely data up to and including time t0
-        expected_timestamps = pd.date_range(t0-pd.Timedelta("165min"), t0, freq="15min")
+        save_chunk_dict = {
+            "x_geostationary": 100,
+            "y_geostationary": 100,
+            "time": 6,
+            "channel": -1,
+        }
 
-        timestamps_available = np.isin(expected_timestamps, available_timestamps)
+        # Clear old encoding
+        for v in list(ds.variables.keys()):
+            ds[v].encoding.clear()
 
-        if not timestamps_available.all():
-            missing_timestamps = expected_timestamps[~timestamps_available]
-            raise Exception(
-                "Some required timestamps missing\n"
-                f"Required timestamps: {expected_timestamps}\n"
-                f"Available timestamps: {timestamps_available}\n"
-                f"Missing timestamps: {missing_timestamps}",
+        ds.chunk(save_chunk_dict).to_zarr(self.destination_path)
+
+    def run(self) -> None:
+        """Download, process, and save the satellite data."""
+        ds = open_satellite_data(
+            icechunk_path=self.source_path,
+            region=self.s3_region,
+        )
+
+        if ds is None:
+            raise ValueError(f"Could not open the satellite data at {self.source_path}")
+
+        logger.info(
+            f"Satellite data contains times:\n...\n{ds.time.values[-24:]}",
+        )
+
+        # We slice the data to the required time window for the model, plus a buffer to allow for
+        # interpolation of missing timestamps
+        start_dt = self.interval_start - MAXIMUM_INTERPOLATION_GAP
+        end_dt = self.interval_end + MAXIMUM_INTERPOLATION_GAP
+
+        ds = (
+            ds.sortby("time")
+            .drop_duplicates("time", keep="last")
+            .sel(time=slice(start_dt, end_dt))[
+                # Filter out unused variables
+                ["data"]
+            ]
+            # Load into memory for processing
+            .load()
+        )
+
+        if len(ds.time) == 0:
+            raise ValueError(
+                f"No satellite data available between {start_dt} and {end_dt}.",
             )
+
+        ds = self.process(ds)
+
+        if satellite_inputs_available(
+            interval_start=self.interval_start,
+            interval_end=self.interval_end,
+            sat_datetimes=ds.time.to_index(),
+        ):
+            self.resave(ds)
+        else:
+            raise ValueError("Satellite data is not available for the required time window.")

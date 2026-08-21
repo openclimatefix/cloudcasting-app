@@ -1,8 +1,11 @@
 from pathlib import Path
+
+import icechunk
 import numpy as np
 import pandas as pd
 import xarray as xr
 import zarr
+from icechunk.xarray import to_icechunk
 
 xr.set_options(keep_attrs=True)
 
@@ -13,7 +16,11 @@ def get_sat_shell():
         ds = xr.open_zarr(store)
 
     # Remove original time dim
-    return  ds.drop_vars("time")
+    ds = ds.drop_vars("time")
+
+    # The shell was saved with the channels under `variable`, but the production satellite store
+    # names that dimension `channel` - see `sat_pred.dataset.open_sat_data`
+    return ds.rename({"variable": "channel"})
 
 
 def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
@@ -34,7 +41,6 @@ def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
     ds.data.attrs = ds.attrs["_data_attrs"]
     del ds.attrs["_data_attrs"]
 
-
     # # This is important to avoid saving errors
     for v in list(ds.variables.keys()):
         ds[v].encoding.clear()
@@ -42,4 +48,13 @@ def make_sat_data(times: pd.DatetimeIndex) -> xr.Dataset:
     return ds
 
 
+def write_icechunk(ds: xr.Dataset, path: str) -> str:
+    """Write a dataset to a new local icechunk store, as the apps expect to read it."""
+    store = icechunk.local_filesystem_storage(path)
+    repo = icechunk.Repository.create(store)
+    session = repo.writable_session(branch="main")
 
+    to_icechunk(ds, session)
+    session.commit("Commit test data")
+
+    return path

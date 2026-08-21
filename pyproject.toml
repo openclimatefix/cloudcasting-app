@@ -10,7 +10,7 @@ name = "cloudcasting-app"
 dynamic = ["version"] # Set automtically using git: https://setuptools-git-versioning.readthedocs.io/en/stable/
 description = "An app for running the OCF cloudcasting model in production"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.12.0,<3.13"
+requires-python = ">=3.12.0,<3.14"
 license = {text = "MIT License"}
 authors = [
     { name = "Open Climate Fix Team", email = "info@openclimatefix.org"}
@@ -21,21 +21,18 @@ classifiers = [
 ]
 dependencies = [
     "fsspec==2025.7.0",
-    "huggingface-hub",
-    "hydra-core",
     "icechunk",
     "loguru",
     "numpy",
-    "ocf-data-sampler==0.5.27",
+    "ocf-data-sampler==1.0.23",
     "pandas",
+    "pydantic-settings",
     "s3fs",
-    "safetensors",
-    "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@main",
-    # Since torch distributes CPU only packages as wheels, have to specify the target platform in order to pull the wheel compiled for that specific platform
-    "torch @ https://download.pytorch.org/whl/cpu/torch-2.3.1-cp312-none-macosx_11_0_arm64.whl ; platform_system == 'Darwin' and platform_machine == 'arm64'",
-    "torchvision @ https://download.pytorch.org/whl/cpu/torchvision-0.18.1-cp312-cp312-macosx_11_0_arm64.whl ; platform_system == 'Darwin' and platform_machine == 'arm64'",
-    "torch @ https://download.pytorch.org/whl/cpu/torch-2.3.1%2Bcpu-cp312-cp312-linux_x86_64.whl ; platform_system == 'Linux' and platform_machine == 'x86_64'",
-    "torchvision @ https://download.pytorch.org/whl/cpu/torchvision-0.18.1%2Bcpu-cp312-cp312-linux_x86_64.whl ; platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "sat_pred @ git+https://github.com/openclimatefix/sat_pred.git@v0.0.4",
+    # pytorch is deliberately unconstrained: we inherit the version according to the version pin in
+    # sat_pred. Inheriting the pin means models are always run with the same version of torch they
+    # we trained with. All this app decides is that it wants the CPU build, via `tool.uv.sources`
+    "torch",
     "xarray",
     "zarr",
 ]
@@ -87,11 +84,11 @@ plugins = [
 [tool.ruff]
 line-length = 100
 indent-width = 4
-exclude = ["__init__.py"]
+# Scratch notebooks are not part of the packages and are not linted
+exclude = ["__init__.py", "*.ipynb"]
 
 [tool.ruff.lint]
 fixable = ["ALL"]
-ignore = ["ANN101", "ANN102"]
 select = [
     "F",   # pyflakes
     "E",   # pycodestyle
@@ -102,7 +99,6 @@ select = [
     "S",   # flake8 bandit
     "B",   # flake8 bugbear
     "C4",  # flake8 comprehensions
-    "COM", # flake8 commas
     "T20", # flake8 print
     "SIM", # flake8 simplify
     "ARG", # flake8 unused arguments
@@ -114,7 +110,8 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"test*" = ["D", "ANN"]
+# Tests are not documented or annotated, and `assert` is how they assert
+"tests/*" = ["D", "ANN", "S101"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -129,5 +126,13 @@ docstring-code-line-length = 100
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
 
+# Production has no GPU, so torch is taken from the CPU-only index - the default PyPI wheels bundle
+# CUDA and are several GB larger. `explicit` means only the packages named in `tool.uv.sources`
+# below are looked for here, so everything else still resolves from PyPI
 [[tool.uv.index]]
+name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]

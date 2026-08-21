@@ -12,13 +12,18 @@ https://huggingface.co/openclimatefix/cloudcasting_uk
 
 The following environment variables are used in the app:
 
-- `SATELLITE_ZARR_PATH`: The path to the satellite data in Zarr format.
+- `SATELLITE_ICECHUNK_PATH`: The s3 path to the icechunk store holding the satellite data.
+- `S3_REGION`: The AWS region of the bucket the satellite icechunk store is in.
 - `PREDICTION_SAVE_DIRECTORY`: The directory where predictions will be saved. 
+
+The satellite store is read with the credentials in the environment, so `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` must also be set.
 
 ### Optional Environment Variables
 
-- `SATELLITE_15_ZARR_PATH`: The path to the 15 minute satellite data in Zarr format. If 
-this is not set then the `SATELLITE_ZARR_PATH` is used by `.zarr` is repalced with `_15.zarr`
+- `SCRATCH_DIR`: If set, the satellite data downloaded for each run is saved to a directory inside
+this one named from the forecast init-time, and is left in place after the run. Otherwise the
+system temp directory is used and is cleaned up when the run finishes.
 
 ## Example usage
 

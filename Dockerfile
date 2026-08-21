@@ -23,8 +23,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 # * --no-install-project: Only install dependencies
 # * --no-editable: Copy the source code into site-packages
 RUN mkdir src && \
-    uv sync --no-dev --no-install-project --no-editable \
-        --index-strategy unsafe-best-match
+    uv sync --no-dev --no-install-project --no-editable
 
 # Remove tests (Pandas ship loads, for instance)
 # * Remove this line if causing problems
@@ -38,7 +37,7 @@ FROM build-deps AS build-app
 COPY src /opt/app/src
 COPY .git /opt/app/.git
 COPY uv.lock /opt/app/uv.lock
-RUN uv sync --no-dev --no-editable --index-strategy unsafe-best-match
+RUN uv sync --no-dev --no-editable
 
 # --- Runtime image (use distroless if feasible for 100MB saving) --- #
 FROM python:3.12-slim-bookworm
