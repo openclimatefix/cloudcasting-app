@@ -7,6 +7,7 @@ The runtime configuration is loaded from environment variables - see
 import contextlib
 import os
 import tempfile
+import warnings
 from collections.abc import Iterator
 from importlib.metadata import version
 
@@ -21,11 +22,15 @@ from sat_pred.channels import ChannelConfig, parse_channel_config
 from sat_pred.dataset import SatelliteDataset
 from sat_pred.load_model import get_model_from_huggingface
 from sat_pred.predictions import PREDICTION_DIMS, PREDICTION_VAR_NAME, prediction_coords
+from zarr.errors import UnstableSpecificationWarning, ZarrUserWarning
 
 from cloudcasting_inference.data import SatelliteDownloader
 from cloudcasting_inference.settings import AppSettings
 
 __version__ = version("cloudcasting-app")
+
+warnings.filterwarnings("ignore", category=UnstableSpecificationWarning)
+warnings.filterwarnings("ignore", category=ZarrUserWarning)
 
 # ---------------------------------------------------------------------------
 
@@ -34,7 +39,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Model revision on huggingface
 REPO_ID = "openclimatefix-models/cloudcasting_uk"
-REVISION = "06e7ee93366a0d1dbb52c937840319460b0b51db"
+REVISION = "d347943a43d40b730d5ecef62569856a690a2ca0"
 
 
 def sanitize_t0(t0: pd.Timestamp | None) -> pd.Timestamp:
@@ -140,7 +145,7 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
     """
     logger.info("Loading model")
     # The loader returns the model in whatever mode hydra instantiated it in
-    model, data_config = get_model_from_huggingface(REPO_ID, REVISION)
+    model, data_config, spatial_grid = get_model_from_huggingface(REPO_ID, REVISION)
     model = model.to(device).eval()
 
     logger.info("Downloading satellite data")
@@ -168,6 +173,7 @@ def _run_forecast(settings: AppSettings, t0: pd.Timestamp, scratch_dir: str) -> 
         sample_freq_mins=data_config["sample_freq_mins"],
         channels=channel_config,
         preshuffle=False,
+        spatial_grid=spatial_grid,
     )
     X = get_input_tensor(dataset, t0)
 

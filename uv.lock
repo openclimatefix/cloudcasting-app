@@ -279,7 +279,7 @@ requires-dist = [
     { name = "pandas" },
     { name = "pydantic-settings" },
     { name = "s3fs" },
-    { name = "sat-pred", git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.3" },
+    { name = "sat-pred", git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.4" },
     { name = "torch", index = "https://download.pytorch.org/whl/cpu" },
     { name = "xarray" },
     { name = "zarr" },
@@ -1912,8 +1912,8 @@ wheels = [
 
 [[package]]
 name = "sat-pred"
-version = "0.0.3.post0+git.098113d3.dirty"
-source = { git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.3#098113d3d43a87a6e413eaec579814ae476608ca" }
+version = "0.0.4.post0+git.fa352aa5.dirty"
+source = { git = "https://github.com/openclimatefix/sat_pred.git?rev=v0.0.4#fa352aa526ac5a0e280b0ce6457248267068e6de" }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "hydra-core" },
