@@ -95,49 +95,56 @@ def interpolate_missing_satellite_timestamps(ds: xr.Dataset, max_gap: pd.Timedel
     dense_times = pd.date_range(ds.time.min().item(), ds.time.max().item(), freq=IMAGE_FREQUENCY)
 
     # Create mask array of which timestamps are available
-    timestamp_available = np.isin(dense_times, ds.time)
+    time_is_available = np.isin(dense_times, ds.time)
 
     # If all the requested times are present we avoid running interpolation
-    if timestamp_available.all():
+    if time_is_available.all():
         logger.info("No gaps in the required satellite sequence - no interpolation run")
         return ds
 
     # If less than 2 of the buffer requested times are present we cannot infill
-    elif timestamp_available.sum() < 2:
+    elif time_is_available.sum() < 2:
         logger.warning("Cannot run interpolate infilling with less than 2 time steps available")
         return ds
 
     else:
         logger.info("Some requested times are missing - running interpolation")
 
-        # Run the interpolation to all 5-minute timestamps between the first and last
-        ds_interp = ds.interp(time=dense_times, method="linear", assume_sorted=True)
-
         # Find the timestamps which are within max gap size
         max_gap_steps = int(max_gap / IMAGE_FREQUENCY) - 1
-        valid_fill_times = fill_1d_bool_gaps(timestamp_available, max_gap_steps)
+        interpolatable_time_mask = fill_1d_bool_gaps(time_is_available, max_gap_steps)
 
-        # Mask the timestamps outside the max gap size
-        valid_fill_times_xr = xr.zeros_like(ds_interp.time, dtype=bool)
-        valid_fill_times_xr.values[:] = valid_fill_times
-        ds_sat_filtered = ds_interp.where(valid_fill_times_xr, drop=True)
+        time_can_be_filled = np.logical_and(interpolatable_time_mask, ~time_is_available)
 
-        time_was_filled = np.logical_and(valid_fill_times_xr, ~timestamp_available)
-
-        if time_was_filled.any():
-            infilled_times = time_was_filled.where(time_was_filled, drop=True)
+        if not interpolatable_time_mask.all():
             logger.info(
-                f"The following times were filled by interpolation:\n{infilled_times.time.values}",
+                "After interpolation the following times will still be missing:\n"
+                f"{dense_times[~interpolatable_time_mask].values}",
             )
 
-        if not valid_fill_times_xr.all():
-            not_infilled_times = valid_fill_times_xr.where(~valid_fill_times_xr, drop=True)
-            logger.info(
-                "After interpolation the following times are still missing:\n"
-                f"{not_infilled_times.time.values}",
-            )
+        if not time_can_be_filled.any():
+            return ds
 
-        return ds_sat_filtered
+        logger.info(
+            f"The following times were filled by interpolation:\n"
+            f"{dense_times[time_can_be_filled].values}",
+        )
+
+        # Only the missing timestamps are interpolated. Interpolating the whole dense sequence
+        # promotes it to float64 and allocates several copies of the full array inside scipy,
+        # which is enough to exhaust the memory of the production container
+        ds_fill = ds.interp(
+            time=dense_times[time_can_be_filled],
+            method="linear",
+            assume_sorted=True,
+        )
+
+        # interp always returns float64, so cast back before concatenating to avoid promoting the
+        # data which did not need filling
+        for name, var in ds.data_vars.items():
+            ds_fill[name] = ds_fill[name].astype(var.dtype)
+
+        return xr.concat([ds, ds_fill], dim="time").sortby("time")
 
 
 def satellite_inputs_available(
